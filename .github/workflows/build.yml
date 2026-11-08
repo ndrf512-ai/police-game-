@@ -275,23 +275,18 @@ jobs:
       - name: 4. Build Direct APK Package
         run: |
           mkdir -p build
-          # Сборка чистого пакета игры
           godot --headless --export-pack "Android" build/game.pck || godot --headless --export-pack "PCK" build/game.pck
 
-          # Загружаем официальный пустой APK-контейнер Godot
           wget -q https://github.com/godotengine/godot/releases/download/4.2.2-stable/godot-4.2.2-stable-android_debug.apk -O build/OVD94_DeadDed.apk
 
-          # Внедряем нашу игру в APK через Python без вызова ADB/daemon-ов
           python3 -c '
-          import zipfile, shutil
+          import zipfile
           with zipfile.ZipFile("build/OVD94_DeadDed.apk", "a") as zf:
               zf.write("build/game.pck", "assets/game.pck")
           '
 
-          # Создаем отладочный ключ и подписываем APK через apksigner / jarsigner
           keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore build/debug.keystore -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
           jarsigner -keystore build/debug.keystore -storepass android -keypass android build/OVD94_DeadDed.apk androiddebugkey
-
           ls -lh build/
 
       - name: 5. Upload Ready APK
