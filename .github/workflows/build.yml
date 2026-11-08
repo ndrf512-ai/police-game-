@@ -12,16 +12,21 @@ jobs:
       - name: 1. Checkout Repo
         uses: actions/checkout@v4
 
-      - name: 2. Setup Godot 4 & Android Templates
+      - name: 2. Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 3. Setup Godot 4 & Android Templates
         uses: chickensoft-games/setup-godot@v2
         with:
           version: 4.2.2
           use-dotnet: false
           include-templates: true
 
-      - name: 3. Force Create Project Configs
+      - name: 4. Final Project Setup & Build
         run: |
-          # 1. Создаем правильный пресет экспорта прямо в корне до запуска Godot
           printf '%s\n' \
             '[preset.0]' \
             'name="Android"' \
@@ -51,7 +56,6 @@ jobs:
             'package/signed=false' \
             > export_presets.cfg
 
-          # 2. Создаем конфигурацию проекта Godot
           printf '%s\n' \
             'config_version=5' \
             '[application]' \
@@ -69,7 +73,6 @@ jobs:
             'textures/canvas_textures/default_texture_filter=0' \
             > project.godot
 
-          # 3. Создаем главную сцену
           printf '%s\n' \
             '[gd_scene load_steps=2 format=3 uid="uid://d37x35ynq8x2b"]' \
             '[ext_resource type="Script" path="res://OVDGameCore.gd" id="1"]' \
@@ -77,7 +80,6 @@ jobs:
             'script = ExtResource("1")' \
             > Main.tscn
 
-          # 4. Записываем основной игровой код
           cat << 'EOF' > OVDGameCore.gd
           extends Node3D
 
@@ -276,28 +278,23 @@ jobs:
               parent.add_child(b)
           EOF
 
-      - name: 4. Build Direct APK Package
-        run: |
           mkdir -p build
-          godot --headless --export-debug "Android" build/OVD94_DeadDed.apk || godot --headless --export-pack "Android" build/game.pck || true
-          
-          # Если пресет сработал штатно — подписываем APK, если нет — упаковываем через стандартный рантайм Godot
-          if [ -f "build/OVD94_DeadDed.apk" ]; then
-            echo "APK exported successfully."
-          else
-            wget -q https://github.com/godotengine/godot/releases/download/4.2.2-stable/godot-4.2.2-stable-android_debug.apk -O build/base.apk
-            mkdir -p build/unpacked
-            unzip -q build/base.apk -d build/unpacked
-            godot --headless --export-pack "PCK" build/game.pck
-            cp build/game.pck build/unpacked/assets/game.pck
-            cd build/unpacked
-            zip -q -r ../OVD94_DeadDed.apk *
-            cd ../..
-          fi
+          godot --headless --export-pack "Android" build/game.pck || godot --headless --export-pack "PCK" build/game.pck
 
-          # Финальная отладочная подпись
+          # Скачиваем официальный пустой шаблон Android-рантайма Godot
+          wget -q https://github.com/godotengine/godot/releases/download/4.2.2-stable/godot-4.2.2-stable-android_debug.apk -O build/base.apk
+          
+          # Безопасное встраивание pck в рантайм без падения на архиваторах
+          python3 -c '
+          import zipfile
+          with zipfile.ZipFile("build/base.apk", "a") as zf:
+              zf.write("build/game.pck", "assets/game.pck")
+          '
+
+          # Подписываем получившийся APK отладочным ключом
           keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore build/debug.keystore -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
-          jarsigner -keystore build/debug.keystore -storepass android -keypass android build/OVD94_DeadDed.apk androiddebugkey
+          jarsigner -keystore build/debug.keystore -storepass android -keypass android build/base.apk androiddebugkey
+          mv build/base.apk build/OVD94_DeadDed.apk
           ls -lh build/
 
       - name: 5. Upload Ready APK
