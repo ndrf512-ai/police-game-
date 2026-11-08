@@ -45,7 +45,7 @@ jobs:
             > project.godot
 
           printf '%s\n' \
-            '[gd_scene load_steps=2 format=3]' \
+            '[gd_scene load_steps=2 format=3 uid="uid://d37x35ynq8x2b"]' \
             '[ext_resource type="Script" path="res://OVDGameCore.gd" id="1"]' \
             '[node name="Main" type="Node3D"]' \
             'script = ExtResource("1")' \
@@ -109,4 +109,202 @@ jobs:
               add_child(light)
 
               sectors.append({"name": "ДЕЖУРНАЯ ЧАСТЬ", "pos": Vector3(0, 0, 0)})
-              sectors.append({"name": "ВХОДНОЙ ХОЛЛ", "pos": Vector3(
+              sectors.append({"name": "ВХОДНОЙ ХОЛЛ", "pos": Vector3(0, 0, 12)})
+              sectors.append({"name": "ОРУЖЕЙНАЯ", "pos": Vector3(-11, 0, -10)})
+              sectors.append({"name": "ИВС (КАМЕРЫ)", "pos": Vector3(11, 0, -10)})
+              sectors.append({"name": "ЭЛЕКТРОЩИТОВАЯ", "pos": Vector3(-11, 0, 10)})
+
+          func build_player_and_viewmodel():
+              cam = Camera3D.new()
+              cam.position = Vector3(0, 1.7, 2)
+              add_child(cam)
+
+              arms_root = Node3D.new()
+              cam.add_child(arms_root)
+
+              left_arm = create_box(Vector3(-0.35, -0.3, -0.5), Vector3(0.14, 0.14, 0.45), Color(0.15, 0.22, 0.3), arms_root)
+              right_arm = create_box(Vector3(0.35, -0.3, -0.5), Vector3(0.14, 0.14, 0.45), Color(0.15, 0.22, 0.3), arms_root)
+              create_box(Vector3(0.35, -0.2, -0.72), Vector3(0.06, 0.12, 0.18), Color(0.1, 0.1, 0.1), arms_root)
+
+          func apply_gender_viewmodel(female: bool):
+              is_female = female
+              var sc = Vector3(0.72, 0.72, 0.95) if female else Vector3.ONE
+              left_arm.scale = sc
+              right_arm.scale = sc
+              update_hud_text()
+
+          func spawn_initial_squads():
+              var names = ["К-т Степанов", "С-т Морозов", "Ст. л-т Волков", "Ряд. Кузьмин", "Л-т Соколова", "Опер Белов"]
+              for i in range(6):
+                  var mesh = create_box(Vector3((i % 2) * 2 - 1, 1.0, -2 - i), Vector3(0.7, 1.8, 0.7), Color(0.18, 0.32, 0.48))
+                  units.append({"name": names[i], "is_cop": true, "visual": mesh, "hp": 100.0, "sec": int(i / 2), "partner": -1})
+              for i in range(0, 6, 2):
+                  units[i]["partner"] = i + 1
+                  units[i + 1]["partner"] = i
+
+          func build_tactical_hud():
+              var canvas = CanvasLayer.new()
+              add_child(canvas)
+
+              status_label = Label.new()
+              status_label.position = Vector2(10, 6)
+              canvas.add_child(status_label)
+
+              radio_label = Label.new()
+              radio_label.position = Vector2(10, 42)
+              radio_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+              radio_label.custom_minimum_size = Vector2(380, 130)
+              canvas.add_child(radio_label)
+
+              create_btn(canvas, "ПОЛ: М/Ж", Vector2(10, 315), func(): apply_gender_viewmodel(!is_female))
+              create_btn(canvas, "ПАУЗА", Vector2(105, 315), func():
+                  is_paused = !is_paused
+                  update_hud_text()
+              )
+              create_btn(canvas, "РАЦИЯ КОМАНДИРОВ", Vector2(185, 315), func(): cmd_panel.visible = !cmd_panel.visible)
+              create_btn(canvas, "ВПЕРЕД", Vector2(540, 250), func(): cam.position -= cam.global_transform.basis.z * 1.4)
+              create_btn(canvas, "НАЗАД", Vector2(540, 315), func(): cam.position += cam.global_transform.basis.z * 1.4)
+              create_btn(canvas, "◄ ПОВОРОТ", Vector2(430, 315), func():
+                  yaw += 0.35
+                  cam.rotation = Vector3(0, yaw, 0)
+              )
+              create_btn(canvas, "ПОВОРОТ ►", Vector2(430, 250), func():
+                  yaw -= 0.35
+                  cam.rotation = Vector3(0, yaw, 0)
+              )
+
+              cmd_panel = Panel.new()
+              cmd_panel.position = Vector2(130, 45)
+              cmd_panel.custom_minimum_size = Vector2(370, 230)
+              cmd_panel.visible = false
+              canvas.add_child(cmd_panel)
+
+              var cmd_names = ["1. Капитан Степанов (Дежурка)", "2. Ст. л-т Волков (Штурм)", "3. Л-т Соколова (Оперчасть)"]
+              for i in range(3):
+                  var idx = i
+                  var lbl = Label.new()
+                  lbl.text = cmd_names[i]
+                  lbl.position = Vector2(10, 10 + i * 70)
+                  cmd_panel.add_child(lbl)
+                  create_btn(cmd_panel, "Назначить Сектор", Vector2(10, 35 + i * 70), func():
+                      cmd_target_sector[idx] = (cmd_target_sector[idx] + 1) % sectors.size()
+                      add_radio_log("[ПРИКАЗ] Командир #" + str(idx + 1) + " -> " + sectors[cmd_target_sector[idx]]["name"])
+                  )
+              update_hud_text()
+
+          func _process(delta: float):
+              if is_paused:
+                  return
+              crime_timer -= delta
+              if crime_timer <= 0.0:
+                  crime_timer = 13.0
+                  generate_crime_and_wave()
+
+              for u in units:
+                  if u["hp"] <= 0:
+                      continue
+                  var sec_id = cmd_target_sector[u["sec"] % 3] if u["is_cop"] else u["sec"]
+                  var target: Vector3 = sectors[sec_id]["pos"] + Vector3(0, 1.0, 0)
+                  u["visual"].position = u["visual"].position.move_toward(target, delta * 2.5)
+
+          func generate_crime_and_wave():
+              var locs = ["У рынка Северный", "Возле ДК Металлургов", "На трассе у поста ГАИ", "У ларьков на Вокзальной"]
+              var crimes = ["перестрелка ОПГ", "налет на инкассаторов", "попытка штурма ИВС"]
+              var l = locs[randi() % locs.size()]
+              var c = crimes[randi() % crimes.size()]
+              add_radio_log("[СВОДКА] " + l + ": " + c + ". Боевики атакуют ОВД!")
+
+              var bandit_mesh = create_box(Vector3(0, 1.0, 15), Vector3(0.7, 1.8, 0.7), Color(0.55, 0.15, 0.15))
+              units.append({"name": "Боевик ОПГ", "is_cop": false, "visual": bandit_mesh, "hp": 85.0, "sec": randi() % sectors.size(), "partner": -1})
+
+          func update_hud_text():
+              var rank = "Майор Ковалева Е.С. (Жен)" if is_female else "Майор Громов А.В. (Муж)"
+              var p = " [ТАКТИЧЕСКАЯ ПАУЗА]" if is_paused else ""
+              status_label.text = rank + " | Бюджет: " + str(budget) + " р. | БК: " + str(ammo) + p
+
+          func add_radio_log(msg: String):
+              radio_label.text = msg + "\n" + radio_label.text
+
+          func create_box(pos: Vector3, sz: Vector3, col: Color, parent: Node3D = null) -> MeshInstance3D:
+              var mi = MeshInstance3D.new()
+              mi.position = pos
+              var bm = BoxMesh.new()
+              bm.size = sz
+              var mat = StandardMaterial3D.new()
+              mat.albedo_color = col
+              mat.roughness = 1.0
+              bm.material = mat
+              mi.mesh = bm
+              if parent != null:
+                  parent.add_child(mi)
+              else:
+                  add_child(mi)
+              return mi
+
+          func create_btn(parent: Node, txt: String, pos: Vector2, cb: Callable):
+              var b = Button.new()
+              b.text = txt
+              b.position = pos
+              b.pressed.connect(cb)
+              parent.add_child(b)
+          EOF
+
+          printf '%s\n' \
+            '[preset.0]' \
+            'name="Android"' \
+            'platform="Android"' \
+            'runnable=true' \
+            'dedicated_server=false' \
+            'custom_features=""' \
+            'export_filter="all_resources"' \
+            'include_filter=""' \
+            'exclude_filter=""' \
+            'export_path="build/OVD94_DeadDed.apk"' \
+            'encryption_include_filters=""' \
+            'encryption_exclude_filters=""' \
+            'encrypt_pck=false' \
+            'encrypt_directory=false' \
+            '' \
+            '[preset.0.options]' \
+            'custom_template/debug=""' \
+            'custom_template/release=""' \
+            'gradle_build/use_gradle_build=false' \
+            'architectures/armeabi-v7a=false' \
+            'architectures/arm64-v8a=true' \
+            'architectures/x86=false' \
+            'architectures/x86_64=false' \
+            'package/unique_name="com.deadded.ovd94"' \
+            'package/name="OVD-94 Siege"' \
+            'package/signed=true' \
+            "keystore/debug=\"$GITHUB_WORKSPACE/debug.keystore\"" \
+            'keystore/debug_user="androiddebugkey"' \
+            'keystore/debug_password="android"' \
+            > export_presets.cfg
+
+      - name: 5. Export & Sign Android APK
+        run: |
+          mkdir -p build
+          keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore "$GITHUB_WORKSPACE/debug.keystore" -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
+          godot --headless --import || true
+
+          SDK_PATH="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          mkdir -p ~/.config/godot
+          for f in ~/.config/godot/editor_settings-4.tres ~/.config/godot/editor_settings-4.2.tres; do
+            printf '%s\n' \
+              '[gd_resource type="EditorSettings" format=3]' \
+              '[resource]' \
+              "export/android/android_sdk_path = \"$SDK_PATH\"" \
+              "export/android/debug_keystore = \"$GITHUB_WORKSPACE/debug.keystore\"" \
+              'export/android/debug_keystore_user = "androiddebugkey"' \
+              'export/android/debug_keystore_pass = "android"' \
+              > "$f"
+          done
+
+          godot --headless --verbose --export-debug "Android" "$GITHUB_WORKSPACE/build/OVD94_DeadDed.apk"
+          ls -lh "$GITHUB_WORKSPACE/build"
+
+      - name: 6. Upload Ready APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: OVD94-Android-APK
+          path: build/OVD94_DeadDed.apk
