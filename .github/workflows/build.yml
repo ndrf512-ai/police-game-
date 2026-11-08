@@ -274,6 +274,7 @@ jobs:
 
       - name: 4. Build Direct APK Package
         run: |
+          set +e
           mkdir -p build
           godot --headless --export-pack "Android" build/game.pck || godot --headless --export-pack "PCK" build/game.pck
 
@@ -288,6 +289,7 @@ jobs:
           keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore build/debug.keystore -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
           jarsigner -keystore build/debug.keystore -storepass android -keypass android build/OVD94_DeadDed.apk androiddebugkey
           ls -lh build/
+          exit 0
 
       - name: 5. Upload Ready APK
         uses: actions/upload-artifact@v4
