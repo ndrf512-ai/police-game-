@@ -12,20 +12,14 @@ jobs:
       - name: 1. Checkout Repo
         uses: actions/checkout@v4
 
-      - name: 2. Setup Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: 3. Setup Godot 4 & Android Templates
+      - name: 2. Setup Godot 4 & Android Templates
         uses: chickensoft-games/setup-godot@v2
         with:
           version: 4.2.2
           use-dotnet: false
           include-templates: true
 
-      - name: 4. Final Project Setup & Build
+      - name: 3. Force Create Project Configs
         run: |
           printf '%s\n' \
             '[preset.0]' \
@@ -278,23 +272,26 @@ jobs:
               parent.add_child(b)
           EOF
 
+      - name: 4. Build Direct APK Package
+        run: |
           mkdir -p build
+          # Сборка чистого пакета игры
           godot --headless --export-pack "Android" build/game.pck || godot --headless --export-pack "PCK" build/game.pck
 
-          # Скачиваем официальный пустой шаблон Android-рантайма Godot
-          wget -q https://github.com/godotengine/godot/releases/download/4.2.2-stable/godot-4.2.2-stable-android_debug.apk -O build/base.apk
-          
-          # Безопасное встраивание pck в рантайм без падения на архиваторах
+          # Загружаем официальный пустой APK-контейнер Godot
+          wget -q https://github.com/godotengine/godot/releases/download/4.2.2-stable/godot-4.2.2-stable-android_debug.apk -O build/OVD94_DeadDed.apk
+
+          # Внедряем нашу игру в APK через Python без вызова ADB/daemon-ов
           python3 -c '
-          import zipfile
-          with zipfile.ZipFile("build/base.apk", "a") as zf:
+          import zipfile, shutil
+          with zipfile.ZipFile("build/OVD94_DeadDed.apk", "a") as zf:
               zf.write("build/game.pck", "assets/game.pck")
           '
 
-          # Подписываем получившийся APK отладочным ключом
+          # Создаем отладочный ключ и подписываем APK через apksigner / jarsigner
           keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore build/debug.keystore -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
-          jarsigner -keystore build/debug.keystore -storepass android -keypass android build/base.apk androiddebugkey
-          mv build/base.apk build/OVD94_DeadDed.apk
+          jarsigner -keystore build/debug.keystore -storepass android -keypass android build/OVD94_DeadDed.apk androiddebugkey
+
           ls -lh build/
 
       - name: 5. Upload Ready APK
