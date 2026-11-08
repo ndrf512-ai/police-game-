@@ -40,10 +40,12 @@ jobs:
           window/size/viewport_width=640
           window/size/viewport_height=360
           window/stretch/mode="viewport"
-          window/handheld/orientation=1
+          window/handheld/orientation=0
           [dotnet]
           project/assembly_name="OVD94"
           [rendering]
+          renderer/rendering_method="gl_compatibility"
+          renderer/rendering_method.mobile="gl_compatibility"
           textures/canvas_textures/default_texture_filter=0
           EOF
 
@@ -86,14 +88,13 @@ jobs:
               public class Sector { public string Name; public Vector3 Pos; public string Owner = "МВД"; }
               public class Unit {
                   public string Name; public bool IsCop; public Node3D Visual;
-                  public float Hp = 100f; public int SectorIdx = 0; public float Reload = 0f;
+                  public float Hp = 100f; public int SectorIdx = 0;
                   public Unit Partner;
               }
 
-              private List<Sector> _sectors = new();
-              private List<Unit> _units = new();
+              private List<Sector> _sectors = new List<Sector>();
+              private List<Unit> _units = new List<Unit>();
               private int[] _cmdTargetSector = { 0, 1, 2 };
-              private string[] _cmdDoctrine = { "УДЕРЖАНИЕ", "ЗАЧИСТКА ДВОЙКАМИ", "ГЛУХАЯ ОБОРОНА" };
 
               public override void _Ready()
               {
@@ -116,194 +117,10 @@ jobs:
                   env.Environment = e;
                   AddChild(env);
 
-                  // Пол и потолок ОВД
                   CreateBox(new Vector3(0, -0.5f, 0), new Vector3(40, 1, 40), new Color(0.18f, 0.2f, 0.22f));
                   CreateBox(new Vector3(0, 4.5f, 0), new Vector3(40, 1, 40), new Color(0.12f, 0.13f, 0.15f));
 
-                  // Стены отсеков (Зеленая казенная краска 90-х)
                   Color wallCol = new Color(0.22f, 0.34f, 0.28f);
                   CreateBox(new Vector3(0, 2, -18), new Vector3(36, 4, 1), wallCol);
                   CreateBox(new Vector3(0, 2, 18), new Vector3(36, 4, 1), wallCol);
-                  CreateBox(new Vector3(-18, 2, 0), new Vector3(1, 4, 36), wallCol);
-                  CreateBox(new Vector3(18, 2, 0), new Vector3(1, 4, 36), wallCol);
-                  CreateBox(new Vector3(-6, 2, -4), new Vector3(1, 4, 16), wallCol);
-                  CreateBox(new Vector3(6, 2, 4), new Vector3(1, 4, 16), wallCol);
-
-                  var light = new OmniLight3D { Position = new Vector3(0, 3.8f, 0), LightEnergy = 1.5f, OmniRange = 28f };
-                  AddChild(light);
-
-                  _sectors.Add(new Sector { Name = "ДЕЖУРНАЯ ЧАСТЬ", Pos = new Vector3(0, 0, 0) });
-                  _sectors.Add(new Sector { Name = "ВХОДНОЙ ХОЛЛ", Pos = new Vector3(0, 0, 12) });
-                  _sectors.Add(new Sector { Name = "ОРУЖЕЙНАЯ", Pos = new Vector3(-11, 0, -10) });
-                  _sectors.Add(new Sector { Name = "ИВС (КАМЕРЫ)", Pos = new Vector3(11, 0, -10) });
-                  _sectors.Add(new Sector { Name = "ЭЛЕКТРОЩИТОВАЯ", Pos = new Vector3(-11, 0, 10) });
-              }
-
-              private void BuildPlayerAndViewmodel()
-              {
-                  _cam = new Camera3D { Position = new Vector3(0, 1.7f, 2) };
-                  AddChild(_cam);
-
-                  _armsRoot = new Node3D();
-                  _cam.AddChild(_armsRoot);
-
-                  _leftArm = CreateBox(new Vector3(-0.35f, -0.3f, -0.5f), new Vector3(0.14f, 0.14f, 0.45f), new Color(0.15f, 0.22f, 0.3f), _armsRoot);
-                  _rightArm = CreateBox(new Vector3(0.35f, -0.3f, -0.5f), new Vector3(0.14f, 0.14f, 0.45f), new Color(0.15f, 0.22f, 0.3f), _armsRoot);
-                  // ПМ в правой руке
-                  CreateBox(new Vector3(0.35f, -0.2f, -0.72f), new Vector3(0.06f, 0.12f, 0.18f), new Color(0.1f, 0.1f, 0.1f), _armsRoot);
-              }
-
-              private void ApplyGenderViewmodel(bool female)
-              {
-                  _isFemale = female;
-                  // Визуальная разница рук от первого лица: женские руки изящнее + манжеты кителя
-                  Vector3 scale = female ? new Vector3(0.75f, 0.75f, 0.95f) : Vector3.One;
-                  _leftArm.Scale = scale;
-                  _rightArm.Scale = scale;
-                  UpdateHUDText();
-              }
-
-              private void SpawnInitialSquads()
-              {
-                  string[] names = { "К-т Степанов", "С-т Морозов", "Ст. л-т Волков", "Ряд. Кузьмин", "Л-т Соколова", "Опер Белов" };
-                  for (int i = 0; i < 6; i++)
-                  {
-                      var mesh = CreateBox(new Vector3((i % 2) * 2 - 1, 1f, -2 - i), new Vector3(0.7f, 1.8f, 0.7f), new Color(0.18f, 0.32f, 0.48f));
-                      _units.Add(new Unit { Name = names[i], IsCop = true, Visual = mesh, SectorIdx = i / 2 });
-                  }
-                  // Кооперация парами
-                  for (int i = 0; i < 6; i += 2) {
-                      _units[i].Partner = _units[i + 1];
-                      _units[i + 1].Partner = _units[i];
-                  }
-              }
-
-              private void BuildTacticalHUD()
-              {
-                  var canvas = new CanvasLayer();
-                  AddChild(canvas);
-
-                  _statusLabel = new Label { Position = new Vector2(10, 6) };
-                  canvas.AddChild(_statusLabel);
-
-                  _radioLabel = new Label { Position = new Vector2(10, 48), AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(360, 120) };
-                  canvas.AddChild(_radioLabel);
-
-                  // Кнопки управления для Android
-                  CreateBtn(canvas, "ПОЛ: М/Ж", new Vector2(10, 315), () => ApplyGenderViewmodel(!_isFemale));
-                  CreateBtn(canvas, "ПАУЗА", new Vector2(105, 315), () => { _isPaused = !_isPaused; UpdateHUDText(); });
-                  CreateBtn(canvas, "РАЦИЯ КОМАНДИРОВ", new Vector2(185, 315), () => _cmdPanel.Visible = !_cmdPanel.Visible);
-                  CreateBtn(canvas, "ВПЕРЕД", new Vector2(540, 250), () => _cam.Position -= _cam.GlobalTransform.Basis.Z * 1.4f);
-                  CreateBtn(canvas, "НАЗАД", new Vector2(540, 315), () => _cam.Position += _cam.GlobalTransform.Basis.Z * 1.4f);
-                  CreateBtn(canvas, "◄ ПОВОРОТ", new Vector2(440, 315), () => { _yaw += 0.35f; _cam.Rotation = new Vector3(0, _yaw, 0); });
-                  CreateBtn(canvas, "ПОВОРОТ ►", new Vector2(440, 250), () => { _yaw -= 0.35f; _cam.Rotation = new Vector3(0, _yaw, 0); });
-
-                  _cmdPanel = new Panel { Position = new Vector2(140, 50), CustomMinimumSize = new Vector2(360, 230), Visible = false };
-                  canvas.AddChild(_cmdPanel);
-
-                  string[] cmdNames = { "1. Капитан Степанов (Дежурка)", "2. Ст. л-т Волков (Штурм)", "3. Л-т Соколова (Оперчасть)" };
-                  for (int i = 0; i < 3; i++)
-                  {
-                      int idx = i;
-                      var lbl = new Label { Text = cmdNames[i], Position = new Vector2(10, 10 + i * 70) };
-                      _cmdPanel.AddChild(lbl);
-                      CreateBtn(_cmdPanel, "Сменить Сектор", new Vector2(10, 35 + i * 70), () => {
-                          _cmdTargetSector[idx] = (_cmdTargetSector[idx] + 1) % _sectors.Count;
-                          AddRadioLog($"[ПРИКАЗ] Командир #{idx+1} ведет группу в сектор: {_sectors[_cmdTargetSector[idx]].Name}");
-                      });
-                  }
-                  UpdateHUDText();
-              }
-
-              public override void _Process(double delta)
-              {
-                  if (_isPaused) return;
-                  float dt = (float)delta;
-
-                  _crimeTimer -= dt;
-                  if (_crimeTimer <= 0f)
-                  {
-                      _crimeTimer = 14f;
-                      GenerateCrimeAndWave();
-                  }
-
-                  // ИИ и кооперация
-                  for (int i = _units.Count - 1; i >= 0; i--)
-                  {
-                      var u = _units[i];
-                      if (u.Hp <= 0) { u.Visual.QueueFree(); _units.RemoveAt(i); continue; }
-
-                      Vector3 target = _sectors[u.IsCop ? _cmdTargetSector[u.SectorIdx % 3] : u.SectorIdx].Pos;
-                      u.Visual.Position = u.Visual.Position.MoveToward(target + new Vector3(0, 1f, 0), dt * 2.5f);
-
-                      // Кооперация: перевязка напарника
-                      if (u.IsCop && u.Partner != null && u.Partner.Hp > 0 && u.Partner.Hp < 60f)
-                      {
-                          u.Partner.Hp += dt * 10f;
-                      }
-                  }
-              }
-
-              private void GenerateCrimeAndWave()
-              {
-                  string[] locs = { "У рынка «Северный»", "Возле ДК Металлургов", "На трассе у поста ГАИ", "У ларьков на Вокзальной" };
-                  string[] crimes = { "перестрелка ОПГ из-за крыши", "налет на инкассаторов с АКСУ", "попытка отбить авторитета из ИВС" };
-                  var rng = new Random();
-                  AddRadioLog($"[СВОДКА] {locs[rng.Next(locs.Length)]}: {crimes[rng.Next(crimes.Length)]}. Боевики атакуют ОВД!");
-
-                  var banditMesh = CreateBox(new Vector3(0, 1f, 15), new Vector3(0.7f, 1.8f, 0.7f), new Color(0.55f, 0.15f, 0.15f));
-                  _units.Add(new Unit { Name = "Боевик ОПГ", IsCop = false, Visual = banditMesh, SectorIdx = rng.Next(_sectors.Count) });
-              }
-
-              private void UpdateHUDText()
-              {
-                  string rank = _isFemale ? "Майор Ковалева Е.С. (Жен)" : "Майор Громов А.В. (Муж)";
-                  string p = _isPaused ? " [ТАКТИЧЕСКАЯ ПАУЗА]" : "";
-                  _statusLabel.Text = $"{rank} | Бюджет: {_budget} р. | БК: {_ammo}{p}";
-              }
-
-              private void AddRadioLog(string msg) => _radioLabel.Text = msg + "\n" + _radioLabel.Text;
-
-              private MeshInstance3D CreateBox(Vector3 pos, Vector3 size, Color col, Node3D parent = null)
-              {
-                  var mi = new MeshInstance3D { Position = pos };
-                  var bm = new BoxMesh { Size = size };
-                  var mat = new StandardMaterial3D { AlbedoColor = col, Roughness = 1f };
-                  bm.Material = mat;
-                  mi.Mesh = bm;
-                  (parent ?? this).AddChild(mi);
-                  return mi;
-              }
-
-              private void CreateBtn(Node parent, string txt, Vector2 pos, Action onClick)
-              {
-                  var b = new Button { Text = txt, Position = pos };
-                  b.Pressed += onClick;
-                  parent.AddChild(b);
-              }
-          }
-          EOF
-
-          cat << 'EOF' > export_presets.cfg
-          [preset.0]
-          name="Android"
-          platform="Android"
-          runnable=true
-          export_filter="all_resources"
-          [preset.0.options]
-          architectures/arm64-v8a=true
-          package/unique_name="com.deadded.ovd94"
-          package/name="OVD-94 Siege"
-          EOF
-
-      - name: 5. Build C# Solutions & Export Android APK
-        run: |
-          mkdir -p build
-          dotnet build OVD94.csproj
-          godot --headless --verbose --export-debug "Android" build/OVD94_DeadDed.apk
-
-      - name: 6. Upload Ready APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: OVD94-Android-APK
-          path: build/OVD94_DeadDed.apk
+                  CreateBox(new Vector3(-18, 2, 0), new Vector3(1, 4, 36),
