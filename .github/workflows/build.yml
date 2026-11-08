@@ -19,8 +19,39 @@ jobs:
           use-dotnet: false
           include-templates: true
 
-      - name: 3. Generate Project Files & Scripts
+      - name: 3. Force Create Project Configs
         run: |
+          # 1. Создаем правильный пресет экспорта прямо в корне до запуска Godot
+          printf '%s\n' \
+            '[preset.0]' \
+            'name="Android"' \
+            'platform="Android"' \
+            'runnable=true' \
+            'dedicated_server=false' \
+            'custom_features=""' \
+            'export_filter="all_resources"' \
+            'include_filter=""' \
+            'exclude_filter=""' \
+            'export_path="build/OVD94_DeadDed.apk"' \
+            'encryption_include_filters=""' \
+            'encryption_exclude_filters=""' \
+            'encrypt_pck=false' \
+            'encrypt_directory=false' \
+            '' \
+            '[preset.0.options]' \
+            'custom_template/debug=""' \
+            'custom_template/release=""' \
+            'gradle_build/use_gradle_build=false' \
+            'architectures/armeabi-v7a=false' \
+            'architectures/arm64-v8a=true' \
+            'architectures/x86=false' \
+            'architectures/x86_64=false' \
+            'package/unique_name="com.deadded.ovd94"' \
+            'package/name="OVD-94 Siege"' \
+            'package/signed=false' \
+            > export_presets.cfg
+
+          # 2. Создаем конфигурацию проекта Godot
           printf '%s\n' \
             'config_version=5' \
             '[application]' \
@@ -38,6 +69,7 @@ jobs:
             'textures/canvas_textures/default_texture_filter=0' \
             > project.godot
 
+          # 3. Создаем главную сцену
           printf '%s\n' \
             '[gd_scene load_steps=2 format=3 uid="uid://d37x35ynq8x2b"]' \
             '[ext_resource type="Script" path="res://OVDGameCore.gd" id="1"]' \
@@ -45,6 +77,7 @@ jobs:
             'script = ExtResource("1")' \
             > Main.tscn
 
+          # 4. Записываем основной игровой код
           cat << 'EOF' > OVDGameCore.gd
           extends Node3D
 
@@ -246,26 +279,25 @@ jobs:
       - name: 4. Build Direct APK Package
         run: |
           mkdir -p build
-          # Упаковываем проект в движковый архив game.pck
-          godot --headless --export-pack "PCK" build/game.pck
-
-          # Скачиваем официальный пустой шаблон Android-рантайма Godot и подменяем в нем .pck на нашу игру
-          # Это гарантирует 100% создание рабочего APK без капризов редактора
-          wget -q https://github.com/godotengine/godot/releases/download/4.2.2-stable/godot-4.2.2-stable-android_debug.apk -O build/base.apk
+          godot --headless --export-debug "Android" build/OVD94_DeadDed.apk || godot --headless --export-pack "Android" build/game.pck || true
           
-          # Распаковываем шаблон, заменяем внутренний pck и собираем обратно
-          mkdir -p build/unpacked
-          unzip -q build/base.apk -d build/unpacked
-          cp build/game.pck build/unpacked/assets/game.pck
-          
-          cd build/unpacked
-          zip -q -r ../OVD94_DeadDed.apk *
-          cd ../..
+          # Если пресет сработал штатно — подписываем APK, если нет — упаковываем через стандартный рантайм Godot
+          if [ -f "build/OVD94_DeadDed.apk" ]; then
+            echo "APK exported successfully."
+          else
+            wget -q https://github.com/godotengine/godot/releases/download/4.2.2-stable/godot-4.2.2-stable-android_debug.apk -O build/base.apk
+            mkdir -p build/unpacked
+            unzip -q build/base.apk -d build/unpacked
+            godot --headless --export-pack "PCK" build/game.pck
+            cp build/game.pck build/unpacked/assets/game.pck
+            cd build/unpacked
+            zip -q -r ../OVD94_DeadDed.apk *
+            cd ../..
+          fi
 
-          # Подписываем получившийся APK отладочным ключом
+          # Финальная отладочная подпись
           keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore build/debug.keystore -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
           jarsigner -keystore build/debug.keystore -storepass android -keypass android build/OVD94_DeadDed.apk androiddebugkey
-
           ls -lh build/
 
       - name: 5. Upload Ready APK
