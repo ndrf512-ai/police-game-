@@ -1,4 +1,4 @@
-name: Auto-Generate C# Game & Build APK
+name: Auto-Generate Game & Build APK
 
 on:
   push:
@@ -25,40 +25,33 @@ jobs:
           use-dotnet: false
           include-templates: true
 
-      - name: 4. Generate Project Files
-        shell: python
+      - name: 4. Generate Project Files (Safe Bash)
         run: |
-          import os, textwrap
+          printf '%s\n' \
+            'config_version=5' \
+            '[application]' \
+            'config/name="OVD-94: Siege"' \
+            'run/main_scene="res://Main.tscn"' \
+            'config/features=PackedStringArray("4.2", "Mobile")' \
+            '[display]' \
+            'window/size/viewport_width=640' \
+            'window/size/viewport_height=360' \
+            'window/stretch/mode="viewport"' \
+            'window/handheld/orientation=0' \
+            '[rendering]' \
+            'renderer/rendering_method="gl_compatibility"' \
+            'renderer/rendering_method.mobile="gl_compatibility"' \
+            'textures/canvas_textures/default_texture_filter=0' \
+            > project.godot
 
-          def write_file(filename, content):
-              with open(filename, "w", encoding="utf-8") as f:
-                  f.write(textwrap.dedent(content).lstrip())
+          printf '%s\n' \
+            '[gd_scene load_steps=2 format=3]' \
+            '[ext_resource type="Script" path="res://OVDGameCore.gd" id="1"]' \
+            '[node name="Main" type="Node3D"]' \
+            'script = ExtResource("1")' \
+            > Main.tscn
 
-          write_file("project.godot", r"""
-          config_version=5
-          [application]
-          config/name="ОВД-94: Осада (Dead Ded Ent.)"
-          run/main_scene="res://Main.tscn"
-          config/features=PackedStringArray("4.2", "Mobile")
-          [display]
-          window/size/viewport_width=640
-          window/size/viewport_height=360
-          window/stretch/mode="viewport"
-          window/handheld/orientation=0
-          [rendering]
-          renderer/rendering_method="gl_compatibility"
-          renderer/rendering_method.mobile="gl_compatibility"
-          textures/canvas_textures/default_texture_filter=0
-          """)
-
-          write_file("Main.tscn", r"""
-          [gd_scene load_steps=2 format=3]
-          [ext_resource type="Script" path="res://OVDGameCore.gd" id="1"]
-          [node name="Main" type="Node3D"]
-          script = ExtResource("1")
-          """)
-
-          write_file("OVDGameCore.gd", r"""
+          cat << 'EOF' > OVDGameCore.gd
           extends Node3D
 
           var cam: Camera3D
@@ -85,7 +78,7 @@ jobs:
               build_player_and_viewmodel()
               build_tactical_hud()
               spawn_initial_squads()
-              add_radio_log("[ДЕЖУРНАЯ ЧАСТЬ] Смена принята. За окном ливень. Ждем сводок по городу.")
+              add_radio_log("[ДЕЖУРНАЯ ЧАСТЬ] Смена принята. За окном ливень. Ждем сводок.")
 
           func build_ps1_station():
               var env = WorldEnvironment.new()
@@ -116,48 +109,4 @@ jobs:
               add_child(light)
 
               sectors.append({"name": "ДЕЖУРНАЯ ЧАСТЬ", "pos": Vector3(0, 0, 0)})
-              sectors.append({"name": "ВХОДНОЙ ХОЛЛ", "pos": Vector3(0, 0, 12)})
-              sectors.append({"name": "ОРУЖЕЙНАЯ", "pos": Vector3(-11, 0, -10)})
-              sectors.append({"name": "ИВС (КАМЕРЫ)", "pos": Vector3(11, 0, -10)})
-              sectors.append({"name": "ЭЛЕКТРОЩИТОВАЯ", "pos": Vector3(-11, 0, 10)})
-
-          func build_player_and_viewmodel():
-              cam = Camera3D.new()
-              cam.position = Vector3(0, 1.7, 2)
-              add_child(cam)
-
-              arms_root = Node3D.new()
-              cam.add_child(arms_root)
-
-              left_arm = create_box(Vector3(-0.35, -0.3, -0.5), Vector3(0.14, 0.14, 0.45), Color(0.15, 0.22, 0.3), arms_root)
-              right_arm = create_box(Vector3(0.35, -0.3, -0.5), Vector3(0.14, 0.14, 0.45), Color(0.15, 0.22, 0.3), arms_root)
-              create_box(Vector3(0.35, -0.2, -0.72), Vector3(0.06, 0.12, 0.18), Color(0.1, 0.1, 0.1), arms_root)
-
-          func apply_gender_viewmodel(female: bool):
-              is_female = female
-              var sc = Vector3(0.72, 0.72, 0.95) if female else Vector3.ONE
-              left_arm.scale = sc
-              right_arm.scale = sc
-              update_hud_text()
-
-          func spawn_initial_squads():
-              var names = ["К-т Степанов", "С-т Морозов", "Ст. л-т Волков", "Ряд. Кузьмин", "Л-т Соколова", "Опер Белов"]
-              for i in range(6):
-                  var mesh = create_box(Vector3((i % 2) * 2 - 1, 1.0, -2 - i), Vector3(0.7, 1.8, 0.7), Color(0.18, 0.32, 0.48))
-                  units.append({"name": names[i], "is_cop": true, "visual": mesh, "hp": 100.0, "sec": int(i / 2), "partner": -1})
-              for i in range(0, 6, 2):
-                  units[i]["partner"] = i + 1
-                  units[i + 1]["partner"] = i
-
-          func build_tactical_hud():
-              var canvas = CanvasLayer.new()
-              add_child(canvas)
-
-              status_label = Label.new()
-              status_label.position = Vector2(10, 6)
-              canvas.add_child(status_label)
-
-              radio_label = Label.new()
-              radio_label.position = Vector2(10, 42)
-              radio_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-              radio_label.custom_minimum_size = Vector2(380
+              sectors.append({"name": "ВХОДНОЙ ХОЛЛ", "pos": Vector3(
