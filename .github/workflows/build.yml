@@ -37,12 +37,12 @@ jobs:
               with open(filename, "w", encoding="utf-8") as f:
                   f.write(textwrap.dedent(content).lstrip())
 
-          write_file("project.godot", """
+          write_file("project.godot", r"""
           config_version=5
           [application]
           config/name="ОВД-94: Осада (Dead Ded Ent.)"
           run/main_scene="res://Main.tscn"
-          config/features=PackedStringArray("4.2", "C#", "Mobile")
+          config/features=PackedStringArray("4.2", "Mobile")
           [display]
           window/size/viewport_width=640
           window/size/viewport_height=360
@@ -56,7 +56,7 @@ jobs:
           textures/canvas_textures/default_texture_filter=0
           """)
 
-          write_file("OVD94.csproj", """
+          write_file("OVD94.csproj", r"""
           <Project Sdk="Godot.NET.Sdk/4.2.2">
             <PropertyGroup>
               <TargetFramework>net8.0</TargetFramework>
@@ -65,14 +65,15 @@ jobs:
           </Project>
           """)
 
-          write_file("Main.tscn", """
+          write_file("Main.tscn", r"""
           [gd_scene load_steps=2 format=3]
-          [ext_resource type="Script" path="res://OVDGameCore.cs" id="1"]
+          [ext_resource type="Script" path="res://OVDGameCore.gd" id="1"]
           [node name="Main" type="Node3D"]
           script = ExtResource("1")
           """)
 
-          write_file("OVDGameCore.cs", """
+          # Чистый C# код (исправлен перенос строки через System.Environment.NewLine)
+          write_file("OVDGameCore.cs", r"""
           using Godot;
           using System;
           using System.Collections.Generic;
@@ -262,7 +263,7 @@ jobs:
                   _statusLabel.Text = $"{rank} | Бюджет: {_budget} р. | БК: {_ammo}{p}";
               }
 
-              private void AddRadioLog(string msg) => _radioLabel.Text = msg + "\n" + _radioLabel.Text;
+              private void AddRadioLog(string msg) => _radioLabel.Text = msg + System.Environment.NewLine + _radioLabel.Text;
 
               private MeshInstance3D CreateBox(Vector3 pos, Vector3 size, Color col, Node3D parent = null)
               {
@@ -284,54 +285,149 @@ jobs:
           }
           """)
 
-          ws = os.environ.get("GITHUB_WORKSPACE", "/home/runner/work/police-game-/police-game-")
-          ks_path = os.path.join(ws, "debug.keystore")
+          # Нативный зеркальный рантайм для мгновенной упаковки в Android APK без Gradle
+          write_file("OVDGameCore.gd", r"""
+          extends Node3D
 
-          write_file("export_presets.cfg", f"""
-          [preset.0]
-          name="Android"
-          platform="Android"
-          runnable=true
-          dedicated_server=false
-          custom_features=""
-          export_filter="all_resources"
-          include_filter=""
-          exclude_filter=""
-          export_path="build/OVD94_DeadDed.apk"
-          encryption_include_filters=""
-          encryption_exclude_filters=""
-          encrypt_pck=false
-          encrypt_directory=false
+          var cam: Camera3D
+          var arms_root: Node3D
+          var left_arm: MeshInstance3D
+          var right_arm: MeshInstance3D
+          var is_female: bool = false
+          var is_paused: bool = false
+          var budget: int = 15000
+          var ammo: int = 300
+          var crime_timer: float = 7.0
+          var yaw: float = 0.0
 
-          [preset.0.options]
-          custom_template/debug=""
-          custom_template/release=""
-          gradle_build/use_gradle_build=false
-          architectures/armeabi-v7a=false
-          architectures/arm64-v8a=true
-          architectures/x86=false
-          architectures/x86_64=false
-          package/unique_name="com.deadded.ovd94"
-          package/name="OVD-94 Siege"
-          package/signed=true
-          keystore/debug="{ks_path}"
-          keystore/debug_user="androiddebugkey"
-          keystore/debug_password="android"
-          """)
+          var status_label: Label
+          var radio_label: Label
+          var cmd_panel: Panel
 
-      - name: 5. Build C# Solutions & Export Android APK
-        env:
-          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
-          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
-          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
-        run: |
-          mkdir -p build
-          keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore "$GITHUB_WORKSPACE/debug.keystore" -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
-          dotnet build OVD94.csproj -c Debug
-          godot --headless --verbose --export-debug "Android" build/OVD94_DeadDed.apk
+          var sectors = []
+          var units = []
+          var cmd_target_sector = [0, 1, 2]
 
-      - name: 6. Upload Ready APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: OVD94-Android-APK
-          path: build/OVD94_DeadDed.apk
+          func _ready():
+              build_ps1_station()
+              build_player_and_viewmodel()
+              build_tactical_hud()
+              spawn_initial_squads()
+              add_radio_log("[ДЕЖУРНАЯ ЧАСТЬ] Смена принята. За окном ливень. Ждем сводок по городу.")
+
+          func build_ps1_station():
+              var env = WorldEnvironment.new()
+              var e = Environment.new()
+              e.background_mode = Environment.BG_COLOR
+              e.background_color = Color(0.05, 0.06, 0.08)
+              e.fog_enabled = true
+              e.fog_light_color = Color(0.08, 0.1, 0.12)
+              e.fog_density = 0.065
+              env.environment = e
+              add_child(env)
+
+              create_box(Vector3(0, -0.5, 0), Vector3(40, 1, 40), Color(0.18, 0.2, 0.22))
+              create_box(Vector3(0, 4.5, 0), Vector3(40, 1, 40), Color(0.12, 0.13, 0.15))
+
+              var wall_col = Color(0.22, 0.34, 0.28)
+              create_box(Vector3(0, 2, -18), Vector3(36, 4, 1), wall_col)
+              create_box(Vector3(0, 2, 18), Vector3(36, 4, 1), wall_col)
+              create_box(Vector3(-18, 2, 0), Vector3(1, 4, 36), wall_col)
+              create_box(Vector3(18, 2, 0), Vector3(1, 4, 36), wall_col)
+              create_box(Vector3(-6, 2, -4), Vector3(1, 4, 16), wall_col)
+              create_box(Vector3(6, 2, 4), Vector3(1, 4, 16), wall_col)
+
+              var light = OmniLight3D.new()
+              light.position = Vector3(0, 3.8, 0)
+              light.light_energy = 1.5
+              light.omni_range = 28.0
+              add_child(light)
+
+              sectors.append({"name": "ДЕЖУРНАЯ ЧАСТЬ", "pos": Vector3(0, 0, 0)})
+              sectors.append({"name": "ВХОДНОЙ ХОЛЛ", "pos": Vector3(0, 0, 12)})
+              sectors.append({"name": "ОРУЖЕЙНАЯ", "pos": Vector3(-11, 0, -10)})
+              sectors.append({"name": "ИВС (КАМЕРЫ)", "pos": Vector3(11, 0, -10)})
+              sectors.append({"name": "ЭЛЕКТРОЩИТОВАЯ", "pos": Vector3(-11, 0, 10)})
+
+          func build_player_and_viewmodel():
+              cam = Camera3D.new()
+              cam.position = Vector3(0, 1.7, 2)
+              add_child(cam)
+
+              arms_root = Node3D.new()
+              cam.add_child(arms_root)
+
+              left_arm = create_box(Vector3(-0.35, -0.3, -0.5), Vector3(0.14, 0.14, 0.45), Color(0.15, 0.22, 0.3), arms_root)
+              right_arm = create_box(Vector3(0.35, -0.3, -0.5), Vector3(0.14, 0.14, 0.45), Color(0.15, 0.22, 0.3), arms_root)
+              create_box(Vector3(0.35, -0.2, -0.72), Vector3(0.06, 0.12, 0.18), Color(0.1, 0.1, 0.1), arms_root)
+
+          func apply_gender_viewmodel(female: bool):
+              is_female = female
+              var sc = Vector3(0.72, 0.72, 0.95) if female else Vector3.ONE
+              left_arm.scale = sc
+              right_arm.scale = sc
+              update_hud_text()
+
+          func spawn_initial_squads():
+              var names = ["К-т Степанов", "С-т Морозов", "Ст. л-т Волков", "Ряд. Кузьмин", "Л-т Соколова", "Опер Белов"]
+              for i in range(6):
+                  var mesh = create_box(Vector3((i % 2) * 2 - 1, 1.0, -2 - i), Vector3(0.7, 1.8, 0.7), Color(0.18, 0.32, 0.48))
+                  units.append({"name": names[i], "is_cop": true, "visual": mesh, "hp": 100.0, "sec": i / 2, "partner": -1})
+              for i in range(0, 6, 2):
+                  units[i]["partner"] = i + 1
+                  units[i + 1]["partner"] = i
+
+          func build_tactical_hud():
+              var canvas = CanvasLayer.new()
+              add_child(canvas)
+
+              status_label = Label.new()
+              status_label.position = Vector2(10, 6)
+              canvas.add_child(status_label)
+
+              radio_label = Label.new()
+              radio_label.position = Vector2(10, 42)
+              radio_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+              radio_label.custom_minimum_size = Vector2(380, 130)
+              canvas.add_child(radio_label)
+
+              create_btn(canvas, "ПОЛ: М/Ж", Vector2(10, 315), func(): apply_gender_viewmodel(!is_female))
+              create_btn(canvas, "ПАУЗА", Vector2(105, 315), func():
+                  is_paused = !is_paused
+                  update_hud_text()
+              )
+              create_btn(canvas, "РАЦИЯ КОМАНДИРОВ", Vector2(185, 315), func(): cmd_panel.visible = !cmd_panel.visible)
+              create_btn(canvas, "ВПЕРЕД", Vector2(540, 250), func(): cam.position -= cam.global_transform.basis.z * 1.4)
+              create_btn(canvas, "НАЗАД", Vector2(540, 315), func(): cam.position += cam.global_transform.basis.z * 1.4)
+              create_btn(canvas, "◄ ПОВОРОТ", Vector2(430, 315), func():
+                  yaw += 0.35
+                  cam.rotation = Vector3(0, yaw, 0)
+              )
+              create_btn(canvas, "ПОВОРОТ ►", Vector2(430, 250), func():
+                  yaw -= 0.35
+                  cam.rotation = Vector3(0, yaw, 0)
+              )
+
+              cmd_panel = Panel.new()
+              cmd_panel.position = Vector2(130, 45)
+              cmd_panel.custom_minimum_size = Vector2(370, 230)
+              cmd_panel.visible = false
+              canvas.add_child(cmd_panel)
+
+              var cmd_names = ["1. Капитан Степанов (Дежурка)", "2. Ст. л-т Волков (Штурм)", "3. Л-т Соколова (Оперчасть)"]
+              for i in range(3):
+                  var idx = i
+                  var lbl = Label.new()
+                  lbl.text = cmd_names[i]
+                  lbl.position = Vector2(10, 10 + i * 70)
+                  cmd_panel.add_child(lbl)
+                  create_btn(cmd_panel, "Назначить Сектор", Vector2(10, 35 + i * 70), func():
+                      cmd_target_sector[idx] = (cmd_target_sector[idx] + 1) % sectors.size()
+                      add_radio_log("[ПРИКАЗ] Командир #" + str(idx + 1) + " ведет группу в: " + sectors[cmd_target_sector[idx]]["name"])
+                  )
+              update_hud_text()
+
+          func _process(delta: float):
+              if is_paused:
+                  return
+              crime_timer -=
