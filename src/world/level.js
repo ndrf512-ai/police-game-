@@ -80,6 +80,7 @@ export const PROPS = [
   { type: 'file_cabinet', x: 6.05, z: 1.0, rot: -Math.PI / 2, rect: [5.7, 0.2, 6.4, 1.8], block: 'O' },
   { type: 'safe', x: 0.6, z: 8.2, rot: Math.PI / 2, rect: [0.2, 7.8, 1.0, 8.6], block: 'O' },
   { type: 'portrait', x: 3.5, z: 0.12, y: 1.9, rot: 0 },
+  { type: 'org_chart', x: 1.5, z: 0.12, y: 1.6, rot: 0 },
   { type: 'flag', x: 0.4, z: 0.6 },
   { type: 'bookshelf', x: 0.35, z: 4.5, rot: Math.PI / 2, rect: [0.1, 3.5, 0.7, 5.5], block: 'O' },
   { type: 'coat_rack', x: 6.1, z: 9.0 },
@@ -169,6 +170,7 @@ export const POINTS = {
   // служебные места
   commander_desk:  { x: 3.5, z: 2.0, yaw: 0, kind: 'seat', zone: 'office' },
   personnel_files: { x: 5.2, z: 1.0, yaw: Math.PI / 2, kind: 'use', zone: 'office' },
+  org_chart:       { x: 1.5, z: 1.0, yaw: Math.PI, kind: 'use', zone: 'office' },
   safe:            { x: 1.2, z: 8.2, yaw: -Math.PI / 2, kind: 'use', zone: 'office' },
   duty_desk:       { x: 24.6, z: 17.0, yaw: -Math.PI / 2, kind: 'seat', zone: 'duty' },
   radio:           { x: 24.4, z: 16.2, yaw: -Math.PI / 2, kind: 'use', zone: 'duty' },

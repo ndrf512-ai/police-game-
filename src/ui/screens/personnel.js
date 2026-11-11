@@ -58,7 +58,7 @@ export class PersonnelScreen extends Screen {
       tabs: [{ id: 'all', label: 'Все' }, { id: 'shift', label: 'На смене', count: onShift.length }, { id: 'task', label: 'На заданиях' }, { id: 'out', label: 'Вне строя' }, { id: 'gone', label: 'Выбыли' }],
       tab: this.filter, onTab: (t) => { this.filter = t; this.refresh(); },
       body: h('div.col.grow', { style: 'gap:0;min-height:0' },
-        h('div.row.wrap', { style: 'padding:.35em .7em;border-bottom:1px solid rgba(36,33,28,.2)' }, h('span.small.dim', 'Порядок:'),
+        h('div.row.wrap', { style: 'padding:.35em .7em;border-bottom:1px solid rgba(36,33,28,.2)' }, btn('Отделы', () => this.ui.open('departments'), { cls: 'slim', act: 'departments' }), h('span.small.dim', 'Порядок:'),
           seg([{ id: 'rank', label: 'по званию' }, { id: 'name', label: 'по фамилии' }, { id: 'fatigue', label: 'усталые' }, { id: 'morale', label: 'недовольные' }], this.sort, (v) => { this.sort = v; this.refresh(); }, { small: true, act: 'sort' })),
         h('div.scroll.grow', { 'data-scroll': 'pers' }, rows.length ? h('div.list', rows) : h('div.empty', 'Никого.'))),
       foot: [btn('Оружейная', () => this.ui.open('armory'), { act: 'armory' }), btn(`Кандидаты (${cand})`, () => this.ui.open('hiring'), { act: 'hiring' }), h('div.sp'), h('span.small.dim', 'Нажмите на сотрудника — откроется личное дело')],

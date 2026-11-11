@@ -11,14 +11,15 @@ async function opt(loader, name) { if (BARE) return null; try { return await loa
 
 export async function boot() {
   say('Загрузка подсистем…');
-  const [crimes, city, staffM, econM, detM, campM, stationM, combatM, uiM, audioM] = await Promise.all([
+  const [crimes, city, staffM, econM, detM, campM, stationM, combatM, uiM, audioM, deptM] = await Promise.all([
     opt(() => import('./sim/crimes.js'), 'crimes'), opt(() => import('./sim/city.js'), 'city'), opt(() => import('./sim/staff.js'), 'staff'),
     opt(() => import('./sim/economy.js'), 'economy'), opt(() => import('./sim/detainees.js'), 'detainees'), opt(() => import('./sim/campaign.js'), 'campaign'),
     opt(() => import('./ai/station.js'), 'station'), opt(() => import('./ai/combat.js'), 'combat'), opt(() => import('./ui/ui.js'), 'ui'), opt(() => import('./engine/audio.js'), 'audio'),
+    opt(() => import('./sim/departments.js'), 'departments'),
   ]);
   const sim = {
     crimes: crimes || null, city: city?.city || null, staff: staffM?.staff || null, economy: econM?.economy || null,
-    detainees: detM?.detainees || null, campaign: campM?.campaign || null,
+    detainees: detM?.detainees || null, campaign: campM?.campaign || null, departments: deptM?.departments || null,
   };
   if (staffM) { sim.staff && (sim.staff.TRAITS = staffM.TRAITS); }
   if (econM) { sim.economy && (sim.economy.ITEMS = econM.ITEMS, sim.economy.UPGRADES = econM.UPGRADES); }

@@ -34,6 +34,7 @@ export function buildProp(geo, p, A, out) {
     case 'file_cabinet': B(0, 0.95, 0, 0.8, 0.95, 0.3, { front: ['files'], side: ['metal'], top: ['metal'], back: ['metal'] }); break;
     case 'safe': B(0, 0.6, 0, 0.38, 0.6, 0.35, { front: ['safe'], side: ['metal_green'], top: ['metal_green'], back: ['metal_green'] }); break;
     case 'portrait': B(0, 0, 0.01, 0.3, 0.38, 0.015, { front: ['emblem'], side: ['wood_dark'] }); break;
+    case 'org_chart': B(0, 0, 0.01, 0.42, 0.3, 0.01, { front: ['paper'], side: ['wood_dark'] }); for (let k = 0; k < 5; k++) B(-0.3 + k * 0.15, -0.08 + (k % 2) * 0.12, 0.022, 0.05, 0.03, 0.003, { front: ['files'] }); B(0, 0.2, 0.022, 0.08, 0.03, 0.003, { front: ['files'] }); break;
     case 'flag': B(0, 1.1, 0, 0.015, 1.1, 0.015, all('wood_dark')); B(0.25, 1.85, 0, 0.25, 0.32, 0.006, { front: ['flag'], back: ['flag'] }); break;
     case 'bookshelf': B(0, 1.0, 0, 1.0, 1.0, 0.25, { front: ['books'], side: ['wood_dark'], top: ['wood_dark'], back: ['wood_dark'] }); break;
     case 'coat_rack': B(0, 0.9, 0, 0.02, 0.9, 0.02, all('wood_dark')); B(0, 0.02, 0, 0.2, 0.02, 0.2, all('wood_dark')); B(0.05, 1.45, 0, 0.13, 0.32, 0.1, all('fabric', [0.5, 0.52, 0.6])); B(0, 1.78, 0, 0.12, 0.04, 0.12, { top: ['metal_dark'], side: ['red'] }); break;

@@ -7,6 +7,7 @@ import { staff } from '../src/sim/staff.js';
 import { economy } from '../src/sim/economy.js';
 import { detainees } from '../src/sim/detainees.js';
 import { campaign } from '../src/sim/campaign.js';
+import { departments } from '../src/sim/departments.js';
 import { StationAI } from '../src/ai/station.js';
 import { Combat } from '../src/ai/combat.js';
 
@@ -16,7 +17,7 @@ console.error = (...a) => { const k = a.map((x) => (x && x.stack ? x.stack.split
 console.warn = (...a) => { const k = 'WARN ' + a.map((x) => (x && x.message ? x.message + ' @ ' + (x.stack || '').split('\n')[1] : String(x))).join(' ').slice(0, 400); errs.set(k, (errs.get(k) || 0) + 1); };
 globalThis.localStorage = { _d: {}, getItem(k) { return this._d[k] ?? null; }, setItem(k, v) { this._d[k] = String(v); } };
 
-const game = new Game({ sim: { crimes, city, staff, economy, detainees, campaign }, seed });
+const game = new Game({ sim: { crimes, city, staff, economy, detainees, campaign, departments }, seed });
 game.StationAI = StationAI; game.combat = new Combat(game);
 const ev = {}; game.bus.on('*', ({ ev: e }) => { ev[e] = (ev[e] || 0) + 1; });
 const attacks = []; game.bus.on('attack:end', (p) => attacks.push({ day: game.state.time.day, t: game.timeStr(), ...p }));

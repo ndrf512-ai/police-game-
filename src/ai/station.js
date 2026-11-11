@@ -113,8 +113,10 @@ export class StationAI {
     if (b instanceof OfficerBrain) {
       b.beginTalk();
       if (b.lockStatus || (b.job && b.job.locked)) return [{ id: 'info', label: 'Куда направляетесь?' }, { id: 'file', label: 'Личное дело' }, { id: 'bye', label: 'Ладно, иди' }];
+      const dep = this.game.sim?.departments; const deptId = dep && dep.headDeptId ? dep.headDeptId(this.game, b.o.id) : null;
       return [
         { id: 'how', label: 'Как служба?' },
+        ...(deptId ? [{ id: 'dept', label: 'Доклад по отделу', desc: dep.DEPTS.find((x) => x.id === deptId)?.name }] : []),
         { id: 'order', label: 'Приказ…', sub: this.orderChoices() },
         { id: 'talk', label: 'Поговорить по душам' },
         { id: 'file', label: 'Личное дело' },
@@ -153,6 +155,13 @@ export class StationAI {
         const r = this.game.sim?.staff?.talk ? this._try(() => this.game.sim.staff.talk(this.game, oid, 'how_are_you')) : null;
         const mine = b.tipsyUntil ? 'how_tipsy' : (o.fatigue ?? 0) > 75 ? 'how_tired' : (o.stress ?? 0) > 65 ? 'how_stressed' : (o.morale ?? 50) < 35 ? 'how_bad' : (o.morale ?? 50) > 65 ? 'how_good' : 'how_ok';
         if (r && r.lines && r.lines.length) { res.lines.push(...r.lines.map(String)); actor.say(res.lines[0], speechDur(res.lines[0])); } else say(mine);
+        return res;
+      }
+      if (choiceId === 'dept') {
+        const dep = this.game.sim?.departments; const deptId = dep && dep.headDeptId ? dep.headDeptId(this.game, oid) : null;
+        const lines = deptId ? this._try(() => dep.reportLines(this.game, deptId)) || [] : [];
+        if (!lines.length) lines.push('Докладывать нечего, товарищ майор.');
+        res.lines.push(...lines); actor.say(lines[0], speechDur(lines[0])); actor.playAnim('talk', 3);
         return res;
       }
       if (choiceId === 'order') return { ...res, choices: this.orderChoices() };

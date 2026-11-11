@@ -30,6 +30,7 @@ export class BriefingScreen extends Screen {
       L(h('div.center.small', `о происшествиях и оперативной обстановке на ${hhmm(480)} ${d.date || dateStr(t.day)} (${weekday(t.day)}, сутки ${t.day})`)),
       sec('1. Обстановка за сутки'),
       (d.lines && d.lines.length) ? items(d.lines) : L(h('div.dim', 'Происшествий, требующих внимания, не зарегистрировано.')),
+      (() => { const L2 = call(this.sim.departments, 'briefingLines', this.game); return Array.isArray(L2) && L2.length ? [sec('Отделы'), items(L2)] : null; })(),
       d.hotspots?.length ? [sec('2. Очаги'), items(d.hotspots, (x) => [h('b', dist(x.districtId)), ' — ', txt(x.why)])] : null,
       d.intel?.length ? [sec('3. Оперативные данные'), items(d.intel, (x) => txt(x))] : null,
       plans.length ? L(h('div.note.bad.mt', `Внимание! По данным осведомителей готовится нападение на отделение (${plans.map((p) => (s.city?.gangs || []).find((g) => g.id === p.gangId)?.name || 'неизвестные').join(', ')}). Проверьте группы обороны на схеме участка.`)) : null,

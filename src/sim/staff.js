@@ -1611,6 +1611,7 @@ export function answer(game, itemId, choiceId, opts = {}) {
     if (it.source === 'detainees') text = detainees.resolveInbox(game, it, choiceId);
     else if (it.source === 'economy') text = economy.resolveInbox(game, it, choiceId);
     else if (it.source === 'campaign') text = campaign.resolveInbox(game, it, choiceId);
+    else if (it.source === 'dept' && game.sim && game.sim.departments) text = game.sim.departments.answerPaper(game, it, choiceId);
     else if (it.officerId && !byId(game, it.officerId) && it.kind !== 'mole_activity') text = 'Решать уже не о ком.';
     else text = resolveStaffEvent(game, it, choiceId);
   } catch (e) { text = 'Решение принято.'; if (typeof console !== 'undefined') console.error('[inbox]', it.kind, e); }

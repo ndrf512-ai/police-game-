@@ -21,6 +21,7 @@ const INTERACT = [
   { point: 'personnel_files', at: [6.05, 1.2, 1.0], label: 'Шкаф с личными делами', screen: 'personnel' },
   { point: 'commander_desk', at: [4.3, 0.85, 2.9], label: 'Телефон: снабжение', screen: 'supply' },
   { point: 'papers', at: [3.35, 0.85, 3.1], label: 'Бумаги на столе', screen: 'inbox' },
+  { point: 'org_chart', at: [1.5, 1.6, 0.12], label: 'Схема отделов — начальники и директивы', screen: 'departments' },
   { point: 'safe', at: [0.6, 0.8, 8.2], label: 'Сейф — касса', screen: 'safe' },
   { point: 'armory_counter', at: [15.5, 1.0, 7.5], label: 'Оружейная — выдача снаряжения', screen: 'armory' },
   { point: 'ivs_guard', at: [22.5, 1.2, 4.3], label: 'Камеры ИВС — задержанные', screen: 'detainees' },
@@ -80,6 +81,7 @@ export class Game {
     try { S.economy?.init?.(this); } catch (e) { console.error('economy.init', e); }
     try { S.staff?.init?.(this, 12); } catch (e) { console.error('staff.init', e); }
     try { S.city?.init?.(this); } catch (e) { console.error('city.init', e); }
+    try { S.departments?.init?.(this); } catch (e) { console.error('departments.init', e); }
     try { S.campaign?.update?.(this); } catch (e) { console.error('campaign.update', e); }
     this._initPlayer();
     this._startRuntime();
@@ -157,6 +159,7 @@ export class Game {
     if (oTpl) for (const o of [...s.staff, ...s.candidates]) if (o && typeof o === 'object') fill(o, oTpl);
     if (!s.staff.length && T.staff?.length) { s.staff = T.staff; }
     tmp.state = null;
+    if (!s.departments) { try { S.departments?.init?.(this); } catch (e) { console.warn('migrate departments', e); } }
   }
 
   // ——— главный шаг ———
@@ -179,6 +182,7 @@ export class Game {
       try { this.combat?.update?.(dt); } catch (e) { this._err('combat', e); }
       try { this.sim.city?.update?.(this, dt); /* dt секунд акторов = dt игровых минут */ } catch (e) { this._err('city', e); }
       try { this.sim.staff?.update?.(this, dt); } catch (e) { this._err('staff', e); }
+      try { this.sim.departments?.update?.(this, dt); } catch (e) { this._err('departments', e); }
       if ((this._endChk = (this._endChk || 0) + dt) > 2) { this._endChk = 0; try { this.sim.campaign?.checkEnd?.(this); } catch (e) { this._err('campaign', e); } }
     }
     // тело игрока
@@ -203,6 +207,7 @@ export class Game {
     try { S.economy?.dayStart?.(this); } catch (e) { console.error(e); }
     try { S.staff?.dayStart?.(this); } catch (e) { console.error(e); }
     try { S.detainees?.dayStart?.(this); } catch (e) { console.error(e); }
+    try { S.departments?.dayStart?.(this); } catch (e) { console.error(e); }
     try { S.campaign?.update?.(this); } catch (e) { console.error(e); }
     this.bus.emit('day:start', { day });
     this.save(true);
