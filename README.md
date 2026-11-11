@@ -16,9 +16,8 @@
 Перед сборкой Gradle сам копирует свежий `dist/index.html` в приложение.
 
 ### Вариант 2. Без компьютера — через GitHub
-1. Создайте репозиторий на github.com и загрузите туда содержимое архива.
-2. Во вкладке **Actions** запустится сборка «Сборка APK» (файл `.github/workflows/build-apk.yml`).
-3. Через 3–5 минут скачайте APK из раздела **Artifacts** этой сборки.
+1. Любой push в репозиторий (или кнопка **Run workflow**) запускает сборку «Сборка APK» (файл `.github/workflows/build-apk.yml`).
+2. Через 3–5 минут скачайте архив `uchastok-apk` из раздела **Artifacts** этой сборки во вкладке **Actions**, внутри — `app-debug.apk`.
 
 ## Управление
 **Телефон:** левая половина экрана — ходьба (оттяните палец дальше — бег), правая — обзор, короткий тап по предмету или человеку — действие. Кнопки: ДЕЙСТВИЕ, ПМ (достать/убрать пистолет), ОГОНЬ, ПРИСЕСТЬ, ФОНАРЬ, БЕГ.
@@ -34,5 +33,7 @@
 
 ## Для разработки
 - `index.html` + `src/` — исходники (ES-модули, без библиотек). Локально: `node tools/serve.mjs . 8765` и откройте `http://localhost:8765/`.
-- `node tools/build.mjs` — сборка в `dist/index.html` (нужен esbuild).
+- `node tools/build.mjs` — сборка в `dist/index.html` (нужен esbuild: `npm i --no-save esbuild@0.23` в корне или `ESBUILD_PATH=…`).
+- Тесты без браузера: `node test/combat_test.mjs`, `node test/world_test.mjs`, `node test/crimes_test.mjs`, `node test/sim_test.mjs [дней] [seed]`.
+- Дымовой прогон в headless Chromium: `node tools/serve.mjs . 8765` и `node tools/smoke.mjs http://localhost:8765/dist/index.html?quick=1 20` (нужен playwright, путь — `PLAYWRIGHT_PATH`).
 - `docs/CONTRACTS.md` — устройство подсистем.
