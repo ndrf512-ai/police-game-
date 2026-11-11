@@ -273,7 +273,16 @@ export function buildCharacter(geo, a, atlas, opts = {}) {
   else if (fem) {
     box(geo, torso, 0, 0.13, 0, L.waistW / 2 * bulky, 0.13, L.torsoD / 2 * bulky, tF, atlas, alpha, 1.15, 1);
     box(geo, torso, 0, 0.39, 0.0, L.torsoW / 2 * bulky, 0.13, L.torsoD / 2 * 1.05 * bulky, tF, atlas, alpha, 0.95, 1.05);
-    if (!look.armor) box(geo, torso, 0, 0.36, L.torsoD / 2 * 0.8, L.torsoW / 2 * 0.75, 0.07, 0.05, { front: [torsoReg, O.tintPool ? ct : W] }, atlas, alpha); // грудь
+    if (!look.armor) { // грудь: два объёма со скруглённым (ступенчатым) профилем, а не один брусок
+      const bf = { front: [torsoReg, O.tintPool ? ct : W], side: [torsoReg, O.tintPool ? ct : W], top: [torsoReg, O.tintPool ? ct : W] };
+      const hw = L.torsoW / 2 * 0.75, zf = L.torsoD / 2 * 0.78;
+      for (const side of [-1, 1]) {
+        const cx = side * hw * 0.5;
+        box(geo, torso, cx, 0.355, zf, hw * 0.44, 0.07, 0.03, bf, atlas, alpha, 0.72, 0.72);      // основание: восьмиугольный силуэт спереди
+        box(geo, torso, cx, 0.35, zf + 0.028, hw * 0.3, 0.048, 0.018, bf, atlas, alpha, 0.7, 0.7); // выступ: уже и ниже
+        box(geo, torso, cx, 0.345, zf + 0.044, hw * 0.16, 0.026, 0.01, bf, atlas, alpha, 0.75, 0.75); // вершина
+      }
+    }
   } else {
     box(geo, torso, 0, L.torsoH / 2, 0, L.torsoW / 2 * bulky, L.torsoH / 2, L.torsoD / 2 * bulky, tF, atlas, alpha, 1.0, L.waistW / L.torsoW);
   }

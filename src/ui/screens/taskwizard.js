@@ -75,7 +75,7 @@ export class TaskWizard {
     const t = this.typeDef();
     const strs = (t?.orderOptions || []).filter((x) => typeof x === 'string');
     const keys = new Set(strs.map((s) => s.split(':')[0]));
-    const general = ORDERS_GENERAL.map((d) => ({ ...d, type: 'enum' }));
+    const general = ORDERS_GENERAL.map((d) => ({ ...d, type: d.type || 'enum' }));
     if (keys.size && general.some((d) => keys.has(d.key))) return general.filter((d) => keys.has(d.key));
     return general;
   }
@@ -323,9 +323,11 @@ export class TaskWizard {
   }
   optRow(d, obj) {
     const desc = h('div.od', d.options?.find((o) => String(o.id) === String(obj[d.key]))?.desc || d.desc || '');
+    const hasOpts = Array.isArray(d.options) && d.options.length > 0;
+    if (d.type !== 'bool' && !hasOpts) return null; // служебное поле без вариантов — в редакторе не показываем
     const ctl = d.type === 'bool'
       ? toggle(!!obj[d.key], (v) => { obj[d.key] = v; }, { act: 'opt-' + d.key })
-      : seg(d.options, obj[d.key], (v, o) => { obj[d.key] = v; desc.textContent = o.desc || d.desc || ''; }, { wrap: d.options.length > 3, small: true, act: 'opt-' + d.key });
+      : seg(d.options, obj[d.key], (v, o) => { obj[d.key] = v; desc.textContent = (o && o.desc) || d.desc || ''; }, { wrap: d.options.length > 3, small: true, act: 'opt-' + d.key });
     return h('div.opt-row', h('div.ol', d.label), h('div', ctl), desc);
   }
   step_orders() {
@@ -391,7 +393,7 @@ export class TaskWizard {
     sq.forEach((o, i) => lines.push(`  ${docRank(o.rank)} ${initials(o)}${o.id === spec.leaderId ? ' — старший' : ''}${i === sq.length - 1 ? '' : ';'}`));
     lines.push(veh ? `на автомашине ${veh.name || veh.id}` : 'пешим порядком');
     lines.push(`выдвинуться: ${d?.name || '—'}${tgt ? `, ${spec.placeId ? (d?.places?.find((q) => q.id === spec.placeId)?.prep || tgt) : tgt}` : ''}.`);
-    lines.push(`Задача: ${(t?.name || spec.type).toLowerCase()}${focus.length ? '; ' + focus.join('; ') : ''}.`);
+    lines.push(`Задача: ${String(t?.name || spec.type || 'по обстановке').toLowerCase()}${focus.length ? '; ' + focus.join('; ') : ''}.`);
     lines.push([stanceTxt, forceTxt, detTxt].filter(Boolean).join(' '));
     lines.push(`Доклад — ${spec.orders.reportEvery === 30 ? 'каждые 30 минут' : spec.orders.reportEvery === 120 ? 'раз в два часа' : 'каждый час'}.${spec.orders.respondCalls ? ' На вызовы по пути откликаться.' : ''}${spec.orders.retreatOnWounded ? ' При ранении сотрудника — прекратить и вернуться.' : ''}`);
     lines.push(spec.orders.returnAt != null ? `Вернуться к ${hhmm(spec.orders.returnAt)}.` : `Продолжительность — ${dur(spec.durationMin)}.`);

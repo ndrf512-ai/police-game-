@@ -382,11 +382,30 @@ export function traitsList(game) {
 export function traitInfo(game, id) {
   return traitsList(game).find((t) => t.id === id) || TRAITS_FALLBACK.find((t) => t.id === id) || { id, name: id, desc: '' };
 }
+/** Цена и срок поставки: в данных они заданы по каналам ({official, commercial, black}); покупка идёт по самому дешёвому легальному каналу */
+function cheapestChannel(price) {
+  if (!price || typeof price !== 'object') return null;
+  const legal = Object.keys(price).filter((c) => c !== 'black' && typeof price[c] === 'number');
+  const pool = legal.length ? legal : Object.keys(price).filter((c) => typeof price[c] === 'number');
+  return pool.length ? pool.sort((a, b) => price[a] - price[b])[0] : null;
+}
+function itemPrice(x) {
+  const p = x.price ?? x.cost ?? 0;
+  if (typeof p === 'number') return p;
+  const ch = cheapestChannel(p); return ch ? Number(p[ch]) || 0 : 0;
+}
+function itemDays(x) {
+  const d = x.deliveryDays ?? x.days ?? x.delivery ?? null;
+  if (d == null || typeof d === 'number') return d;
+  if (Array.isArray(d)) return Number(d[d.length - 1]) || null;
+  if (typeof d === 'object') { const ch = cheapestChannel(x.price) || Object.keys(d)[0]; const r = d[ch] ?? Object.values(d)[0]; return Array.isArray(r) ? Number(r[r.length - 1]) || null : (typeof r === 'number' ? r : null); }
+  return null;
+}
 export function normItem(x) {
   const kind = x.kind || x.slot || x.type || x.category || 'other';
   return {
     ...x, id: x.id, name: x.name || x.title || x.id, kind,
-    price: Number(x.price ?? x.cost ?? 0), days: x.deliveryDays ?? x.days ?? x.delivery ?? null, desc: x.desc || x.description || '',
+    price: itemPrice(x), days: itemDays(x), desc: x.desc || x.description || '',
   };
 }
 export function itemsList(game) {

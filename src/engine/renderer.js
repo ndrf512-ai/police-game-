@@ -15,7 +15,7 @@ export class Renderer {
   constructor(canvas, world, game = null) {
     this.canvas = canvas; this.world = world; this.game = game;
     const gl = (this.gl = createGL(canvas));
-    this.settings = { scale: 1, height: 240, dither: true, jitter: true, affine: 0.55, fog: 1, fov: 72 };
+    this.settings = { scale: 1, height: 240, dither: true, jitter: true, affine: 0.4, fog: 1, fov: 72, brightness: 1 };
     this.prog = compile(gl, WORLD_VS, WORLD_FS, 'world');
     this.progScreen = compile(gl, WORLD_VS, SCREEN_FS, 'screen');
     this.progPost = compile(gl, POST_VS, POST_FS, 'post');
@@ -105,7 +105,7 @@ export class Renderer {
     gl.useProgram(p.p);
     gl.uniformMatrix4fv(u.uView, false, view); gl.uniformMatrix4fv(u.uProj, false, proj); gl.uniformMatrix4fv(u.uModel, false, this.ident);
     const tw = this.curTarget.w, th = this.curTarget.h;
-    gl.uniform2f(u.uSnap, this.settings.jitter ? tw * 0.5 : 0, this.settings.jitter ? th * 0.5 : 0);
+    gl.uniform2f(u.uSnap, this.settings.jitter ? tw : 0, this.settings.jitter ? th : 0);
     const amb = this.power ? state.ambIn : [0.03, 0.03, 0.045];
     gl.uniform3fv(u.uAmb, amb); gl.uniform3fv(u.uAmbOut, state.ambOut); gl.uniform3fv(u.uSky, state.sky);
     gl.uniform4f(u.uBld, -0.5, -0.5, 32, 20);
@@ -218,7 +218,7 @@ export class Renderer {
     const pp = this.progPost; gl.useProgram(pp.p); this._bindTex(this.target.tex); gl.uniform1i(pp.u.uTex, 0);
     gl.uniform2f(pp.u.uRes, this.target.w, this.target.h); gl.uniform1f(pp.u.uDither, this.settings.dither ? 1 : 0);
     gl.uniform1f(pp.u.uHurt, this.hurt); gl.uniform1f(pp.u.uFade, this.fade); gl.uniform1f(pp.u.uWhite, this.white); gl.uniform1f(pp.u.uTime, this.time);
-    gl.uniform1f(pp.u.uSuppress, scene.suppress || 0);
+    gl.uniform1f(pp.u.uSuppress, scene.suppress || 0); gl.uniform1f(pp.u.uBright, this.settings.brightness || 1);
     this.post.draw(); gl.enable(gl.DEPTH_TEST);
   }
 
@@ -240,8 +240,8 @@ export class Renderer {
     const indoor = scene.cameraIndoor;
     return {
       night, dusk, tvOn: s.tvOn !== false,
-      ambIn: this.power ? [0.2, 0.2, 0.21] : [0.03, 0.03, 0.04],
-      ambOut: [0.05 + 0.2 * day, 0.055 + 0.21 * day, 0.07 + 0.22 * day],
+      ambIn: this.power ? [0.27, 0.27, 0.285] : [0.045, 0.045, 0.06],
+      ambOut: [0.075 + 0.24 * day, 0.08 + 0.25 * day, 0.1 + 0.26 * day],
       sky: [0.06 + 0.3 * day, 0.065 + 0.31 * day, 0.08 + 0.33 * day],
       fogCol: fogCol.map((v) => v * (this.power || !indoor ? 1 : 0.4) + this.lightning * 0.3),
       fogNear: indoor ? 10 : 3, fogFar: indoor ? 40 : (night ? 30 : 46),

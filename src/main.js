@@ -48,6 +48,7 @@ export async function boot() {
     if (s.resScale) renderer.settings.scale = s.resScale;
     if (s.dither != null) renderer.settings.dither = !!s.dither;
     if (s.jitter != null) renderer.settings.jitter = !!s.jitter;
+    if (s.brightness) renderer.settings.brightness = +s.brightness || 1;
     if (s.lookSens) input.sens = s.lookSens;
     if (s.invertY != null) input.invertY = !!s.invertY;
     game.showFps = !!s.showFps;

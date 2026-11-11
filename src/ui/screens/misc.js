@@ -236,6 +236,7 @@ export class SettingsScreen extends Screen {
       row('Инверсия по вертикали', tg('invertY')), row('Вибрация', tg('vibration'))),
       h('div.sect', 'Графика'), h('div.set-grid',
         row('Разрешение картинки', sg('resScale', [[0.5, 'PS1'], [0.75, 'PS1+'], [1, 'PS2'], [1.5, 'чётче']])),
+        row('Яркость', sg('brightness', [[0.8, 'темнее'], [1, 'норма'], [1.25, 'светлее'], [1.5, 'ярко']])),
         row('Дизеринг (зерно)', tg('dither')), row('Дрожание вершин', tg('jitter')), row('Показывать FPS', tg('showFps'))),
       h('div.sect', 'Звук'), h('div.set-grid',
         row('Общая громкость', sg('volMaster', [[0, 'выкл'], [0.4, 'тихо'], [0.8, 'норма'], [1, 'громко']])),

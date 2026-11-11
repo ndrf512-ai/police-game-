@@ -102,7 +102,7 @@ export const PROPS = [
   { type: 'bunk', x: 22.25, z: 0.6, rect: [21.3, 0.1, 23.2, 1.1], block: 'o' },
   { type: 'bunk', x: 25.25, z: 0.6, rect: [24.3, 0.1, 26.2, 1.1], block: 'o' },
   { type: 'desk', x: 25.5, z: 8.6, rot: Math.PI, rect: [24.7, 8.1, 26.3, 9.1], block: 'o' },
-  { type: 'chair', x: 25.5, z: 7.8, rot: Math.PI },
+  { type: 'chair', x: 25.5, z: 7.8, rot: 0 },
   // Генераторная
   { type: 'generator', x: 29.8, z: 4.0, rect: [28.6, 3.0, 31.0, 5.0], block: 'o' },
   { type: 'fusebox', x: 31.47, z: 8.0, y: 1.3, rot: -Math.PI / 2 },
@@ -126,7 +126,7 @@ export const PROPS = [
   { type: 'kettle', x: 4.8, z: 15.1, y: 0.75 }, { type: 'mugs', x: 5.2, z: 15.3, y: 0.75 },
   { type: 'chair', x: 6.2, z: 15.3, rot: -Math.PI / 2 },
   { type: 'fridge', x: 4.4, z: 17.0, rect: [4.1, 16.5, 4.8, 17.5], block: 'O' },
-  { type: 'armchair', x: 8.6, z: 15.4, rot: Math.PI / 2, rect: [8.2, 15.0, 9.0, 15.8], block: 'o' },
+  { type: 'armchair', x: 8.5, z: 15.4, rot: 0.3, rect: [8.1, 15.0, 8.9, 15.8], block: 'o' },
   { type: 'chess', x: 5.0, z: 15.3, y: 0.75, hidden: true },
   { type: 'calendar', x: 9.47, z: 15.5, y: 1.6, rot: -Math.PI / 2 },
   // Вестибюль
@@ -145,7 +145,7 @@ export const PROPS = [
   { type: 'station_plan', x: 29.0, z: 14.12, y: 1.6, rot: 0 },
   { type: 'monitors', x: 26.5, z: 19.15, y: 0.78, rot: Math.PI },
   { type: 'desk', x: 26.5, z: 19.0, rot: Math.PI, rect: [25.7, 18.6, 27.3, 19.45], block: 'o' },
-  { type: 'chair', x: 26.5, z: 18.2, rot: Math.PI },
+  { type: 'chair', x: 26.5, z: 18.2, rot: 0 },
   { type: 'key_box', x: 31.47, z: 15.0, y: 1.5, rot: -Math.PI / 2 },
   { type: 'kettle', x: 27.0, z: 19.1, y: 0.78 },
   // Улица
@@ -181,7 +181,7 @@ export const POINTS = {
   interrogation_suspect: { x: 10.0, z: 5.6, yaw: 0, kind: 'seat', zone: 'opers' },
   opers_desk_1:    { x: 8.6, z: 1.4, yaw: 0, kind: 'seat', zone: 'opers' },
   opers_desk_2:    { x: 11.4, z: 1.4, yaw: 0, kind: 'seat', zone: 'opers' },
-  ivs_guard:       { x: 25.5, z: 7.8, yaw: Math.PI, kind: 'seat', zone: 'ivs' },
+  ivs_guard:       { x: 25.5, z: 7.8, yaw: 0, kind: 'seat', zone: 'ivs' },
   cell_1:          { x: 19.5, z: 2.5, yaw: Math.PI, kind: 'cell', zone: 'ivs' },
   cell_2:          { x: 22.5, z: 2.5, yaw: Math.PI, kind: 'cell', zone: 'ivs' },
   cell_3:          { x: 25.5, z: 2.5, yaw: Math.PI, kind: 'cell', zone: 'ivs' },
@@ -190,7 +190,7 @@ export const POINTS = {
   // быт
   tv_sofa_1:       { x: 5.9, z: 18.6, yaw: Math.PI, kind: 'seat', zone: 'rest' },
   tv_sofa_2:       { x: 7.1, z: 18.6, yaw: Math.PI, kind: 'seat', zone: 'rest' },
-  tv_armchair:     { x: 8.6, z: 15.4, yaw: Math.PI / 2, kind: 'seat', zone: 'rest' },
+  tv_armchair:     { x: 8.5, z: 15.4, yaw: 0.3, kind: 'seat', zone: 'rest' },
   kettle:          { x: 5.0, z: 16.2, yaw: Math.PI, kind: 'use', zone: 'rest' },
   rest_chair:      { x: 6.2, z: 15.3, yaw: -Math.PI / 2, kind: 'seat', zone: 'rest' },
   fridge:          { x: 5.2, z: 17.0, yaw: -Math.PI / 2, kind: 'use', zone: 'rest' },
@@ -198,7 +198,7 @@ export const POINTS = {
   toilet:          { x: 3.1, z: 18.4, yaw: 0, kind: 'use', zone: 'toilet' },
   water_cooler:    { x: 21.0, z: 11.0, yaw: Math.PI, kind: 'use', zone: 'corridor' },
   notice_board:    { x: 25.0, z: 10.8, yaw: Math.PI, kind: 'use', zone: 'corridor' },
-  corridor_bench:  { x: 12.0, z: 11.0, yaw: Math.PI, kind: 'seat', zone: 'corridor' },
+  corridor_bench:  { x: 12.0, z: 10.6, yaw: 0, kind: 'seat', zone: 'corridor' },
   smoke_porch_1:   { x: 18.0, z: 21.6, yaw: 0, kind: 'smoke', zone: 'street' },
   smoke_porch_2:   { x: 14.5, z: 21.4, yaw: 0, kind: 'smoke', zone: 'street' },
   smoke_yard:      { x: 28.5, z: -1.5, yaw: 0, kind: 'smoke', zone: 'yard' },

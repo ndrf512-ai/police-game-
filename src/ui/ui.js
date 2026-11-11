@@ -6,7 +6,7 @@ import { WEAPON_NAMES, ATTACK_RESULT, zoneName, GANG_TYPES } from './labels.js';
 import { SCREENS } from './screens/index.js';
 
 export const DEFAULT_SETTINGS = {
-  lookSens: 1, invertY: false, resScale: 0.75, dither: true, jitter: true, fog: true,
+  lookSens: 1, invertY: false, resScale: 0.75, dither: true, jitter: true, fog: true, brightness: 1,
   volMaster: 0.8, volSfx: 0.9, volAmbience: 0.7, uiScale: 1, vibration: true, subtitles: true, showFps: false,
 };
 const LS_SETTINGS = 'uchastok_settings';

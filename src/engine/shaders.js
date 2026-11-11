@@ -52,7 +52,9 @@ uniform sampler2D uTex; uniform vec3 uFogCol; uniform float uAffine, uAlphaTest,
 out vec4 o;
 void main(){
   if (uClipSign != 0.0 && (vWP.x - uClipX) * uClipSign < 0.0) discard;
-  vec2 uv = mix(vUV, vUVA.xy / vUVA.z, uAffine) + uUVScroll;
+  // PS1-эффект аффинной текстуры: вблизи большие полигоны «плывут» — гасим эффект на близких поверхностях
+  float aff = uAffine * smoothstep(1.5, 9.0, vUVA.z);
+  vec2 uv = mix(vUV, vUVA.xy / vUVA.z, aff) + uUVScroll;
   vec4 t = texture(uTex, uv);
   if (t.a < uAlphaTest) discard;
   vec3 c = t.rgb * vCol.rgb;
@@ -80,7 +82,7 @@ void main(){ vUV = aPos.xy * 0.5 + 0.5; gl_Position = vec4(aPos.xy, 0.0, 1.0); }
 
 export const POST_FS = `#version 300 es
 precision highp float;
-in vec2 vUV; uniform sampler2D uTex; uniform vec2 uRes; uniform float uDither, uHurt, uFade, uWhite, uTime, uNight, uSuppress;
+in vec2 vUV; uniform sampler2D uTex; uniform vec2 uRes; uniform float uDither, uHurt, uFade, uWhite, uTime, uNight, uSuppress, uBright;
 out vec4 o;
 float bayer(vec2 p){ ivec2 i = ivec2(mod(p, 4.0)); int idx = i.x + i.y * 4;
   float m[16] = float[16](0.,8.,2.,10.,12.,4.,14.,6.,3.,11.,1.,9.,15.,7.,13.,5.); return m[idx] / 16.0 - 0.5; }
@@ -91,9 +93,12 @@ void main(){
   float l = dot(c, vec3(0.299, 0.587, 0.114));
   c = mix(c, vec3(l), 0.18 + uSuppress * 0.3);
   c *= vec3(0.96, 1.0, 1.04);
-  c = pow(max(c, 0.0), vec3(1.05));
+  // яркость: подъём средних тонов (не выжигая светлое) + общий множитель
+  float br = max(uBright, 0.2);
+  c = pow(max(c, 0.0), vec3(1.0 / (0.85 + 0.15 * br)));
+  c *= 0.9 + 0.35 * (br - 0.7);
   // виньетка
-  vec2 d = vUV - 0.5; c *= 1.0 - dot(d, d) * (0.9 + uSuppress * 1.4);
+  vec2 d = vUV - 0.5; c *= 1.0 - dot(d, d) * (0.65 + uSuppress * 1.4);
   // ранение
   c = mix(c, vec3(0.45, 0.02, 0.02), uHurt * (0.35 + 0.65 * dot(d, d) * 3.0));
   if (uDither > 0.5) { c = floor(c * 31.0 + 0.5 + bayer(px) * 0.9) / 31.0; }
