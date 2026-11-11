@@ -17,7 +17,7 @@ const DISTRICT_IDS = ['rynok', 'vokzal', 'promzona', 'cheremushki', 'centr', 'ch
 const DISTRICT_NAMES = { rynok: 'Рынок', vokzal: 'Вокзал', promzona: 'Промзону', cheremushki: 'Черёмушки', centr: 'Центр', chastnyi: 'Частный сектор' };
 const SKILL_NAMES = { shooting: 'Огневая', tactics: 'Тактика', perception: 'Наблюдательность', fitness: 'Физическая', discipline: 'Дисциплина', talk: 'Общение', investigation: 'Розыск', driving: 'Вождение' };
 const SHIFT_NAMES = ['«А»', '«Б»', '«В»'];
-export const MAX_STAFF = 18;
+export const MAX_STAFF = 26;
 
 // ======================= служебные помощники =======================
 const R = (game) => game.rng;
@@ -112,6 +112,8 @@ const ROLE_SKILL = {
   duty: { discipline: 12, talk: 10, perception: 6, investigation: 6 }, uchastkovy: { talk: 20, investigation: 15, perception: 8 },
   driver: { driving: 35, fitness: 4 }, guard: { discipline: 10, fitness: 8, perception: 5 }, kinolog: { perception: 15, fitness: 10 },
   secretary: { talk: 18, discipline: 12, perception: 4, shooting: -25, tactics: -20, fitness: -8 },
+  sledovatel: { investigation: 32, discipline: 14, talk: 12, perception: 8, shooting: -6, fitness: -6 },
+  spec: { shooting: 26, tactics: 22, fitness: 24, discipline: 8, talk: -6 },
 };
 const TRAIT_SKILL = {
   marksman: { shooting: 25 }, athlete: { fitness: 25 }, driver_ace: { driving: 28 }, sharp: { perception: 20, investigation: 6 },
@@ -120,8 +122,8 @@ const TRAIT_SKILL = {
   afghan: { shooting: 15, tactics: 18 }, chechnya: { shooting: 12, tactics: 12 }, sick: { fitness: -25 }, drinker: { discipline: -10, fitness: -6 },
   leader: { tactics: 10, talk: 8 }, local: { investigation: 8, talk: 6 }, kind: { talk: 6 }, hothead: { discipline: -8 }, medic: { perception: 3 },
 };
-const ROLE_AGE = { pps: [20, 44, 28], duty: [24, 50, 36], oper: [24, 42, 31], uchastkovy: [27, 52, 38], driver: [24, 55, 38], guard: [23, 50, 34], kinolog: [21, 40, 28], secretary: [19, 48, 27] };
-const TRAIT_ROLE_BIAS = { driver: { driver_ace: 5 }, oper: { sharp: 2, talker: 1.5, ambitious: 1.5 }, uchastkovy: { local: 4, talker: 1.5, kind: 1.5 }, duty: { pedant: 2.5, silent: 1.3 }, guard: { sadist: 1.6, silent: 1.5 }, pps: { athlete: 1.5, hothead: 1.3 }, kinolog: { kind: 2, athlete: 1.5 } };
+const ROLE_AGE = { pps: [20, 44, 28], duty: [24, 50, 36], oper: [24, 42, 31], uchastkovy: [27, 52, 38], driver: [24, 55, 38], guard: [23, 50, 34], kinolog: [21, 40, 28], secretary: [19, 48, 27], sledovatel: [24, 50, 33], spec: [21, 38, 27] };
+const TRAIT_ROLE_BIAS = { driver: { driver_ace: 5 }, oper: { sharp: 2, talker: 1.5, ambitious: 1.5 }, uchastkovy: { local: 4, talker: 1.5, kind: 1.5 }, duty: { pedant: 2.5, silent: 1.3 }, guard: { sadist: 1.6, silent: 1.5 }, pps: { athlete: 1.5, hothead: 1.3 }, kinolog: { kind: 2, athlete: 1.5 }, sledovatel: { pedant: 2.5, sharp: 1.5 }, spec: { athlete: 2.5, marksman: 2, leader: 1.5 } };
 
 function traitOk(t, o, cur) {
   if (cur.includes(t.id)) return false;
@@ -189,7 +191,7 @@ export function makeOfficer(game, rng, spec) {
   let age = spec.age || Math.round(clamp(rng.gauss(amean, 7), amin, amax));
   if (spec.rookie) age = rng.int(19, 23);
   if (role === 'duty' && spec.dutyChief) age = Math.max(age, 27);
-  const minYears = ['oper', 'uchastkovy'].includes(role) || spec.dutyChief ? 3 : 1;
+  const minYears = ['oper', 'uchastkovy', 'sledovatel'].includes(role) || spec.dutyChief ? 3 : 1;
   const serviceYears = spec.rookie ? rng.int(0, 1) : clamp(rng.int(minYears, Math.max(minYears, age - 20)), minYears, 30);
   const o = {
     id: uid('o'), gender: p.gender, firstName: p.firstName, lastName: p.lastName, patronymic: p.patronymic,
@@ -1614,10 +1616,12 @@ export function answer(game, itemId, choiceId, opts = {}) {
     else if (it.source === 'economy') text = economy.resolveInbox(game, it, choiceId);
     else if (it.source === 'campaign') text = campaign.resolveInbox(game, it, choiceId);
     else if (it.source === 'dept' && game.sim && game.sim.departments) text = game.sim.departments.answerPaper(game, it, choiceId);
+    else if (['deputy', 'cases', 'spec'].includes(it.source) && game.sim && game.sim.departments) text = game.sim.departments.resolveInbox(game, it, choiceId);
+    else if (['duty', 'docs'].includes(it.source) && game.sim && game.sim.duty) text = game.sim.duty.resolveInbox(game, it, choiceId);
     else if (it.officerId && !byId(game, it.officerId) && it.kind !== 'mole_activity') text = 'Решать уже не о ком.';
     else text = resolveStaffEvent(game, it, choiceId);
   } catch (e) { text = 'Решение принято.'; if (typeof console !== 'undefined') console.error('[inbox]', it.kind, e); }
-  it.result = (opts.auto ? 'Без вашего решения: ' : '') + (text || 'Принято.');
+  it.result = (opts.by === 'deputy' ? 'Решение зама: ' : opts.auto ? 'Без вашего решения: ' : '') + (text || 'Принято.'); if (opts.by) it.decidedBy = opts.by;
   glog(game, `${it.title}: ${it.result}`, 'inbox');
   emit(game, 'inbox:answered', { item: it });
   return { ok: true, text: it.result };
@@ -1753,7 +1757,7 @@ function dailyXP(game) {
     if (o.flags.skillLvl === undefined) o.flags.skillLvl = lvl;
     while (o.flags.skillLvl < lvl) {
       o.flags.skillLvl++;
-      const pref = { pps: ['shooting', 'tactics', 'fitness'], oper: ['investigation', 'talk', 'perception'], duty: ['perception', 'talk', 'discipline'], uchastkovy: ['talk', 'investigation'], driver: ['driving', 'tactics'], guard: ['discipline', 'perception'], kinolog: ['perception', 'fitness'] }[o.role] || ['tactics'];
+      const pref = { pps: ['shooting', 'tactics', 'fitness'], oper: ['investigation', 'talk', 'perception'], duty: ['perception', 'talk', 'discipline'], uchastkovy: ['talk', 'investigation'], driver: ['driving', 'tactics'], guard: ['discipline', 'perception'], kinolog: ['perception', 'fitness'], sledovatel: ['investigation', 'talk', 'discipline'], spec: ['shooting', 'tactics', 'fitness'] }[o.role] || ['tactics'];
       const k = rng.pick(pref.concat(['tactics', 'perception']));
       o.skills[k] = clamp(o.skills[k] + rng.int(1, 3), 5, 95);
     }
@@ -1798,6 +1802,7 @@ export const staff = {
     const comp = ['duty_chief', 'duty_assist', 'oper', 'uchastkovy', 'driver', 'guard', 'pps', 'pps', 'pps', 'pps', 'pps', rng.chance(0.5) ? 'oper' : 'pps', 'secretary'];
     while (comp.length < n) comp.push(rng.pick(['pps', 'pps', 'oper', 'guard', 'driver']));
     comp.length = n;
+    if (n >= 10) comp.push('sledovatel', 'spec', 'spec', 'spec', 'spec', 'spec'); // 1.1: следствие и спецподразделение
     const nf = rng.int(2, 3);
     const femW = { duty_assist: 3, oper: 2, guard: 1.5, pps: 1, uchastkovy: 1, duty_chief: 1, driver: 0.1, secretary: 0 };
     const femIdx = new Set();

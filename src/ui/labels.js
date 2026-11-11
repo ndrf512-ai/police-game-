@@ -10,9 +10,9 @@ export function headerLine(game) { return `ГУВД г. ${cityName(game)} · ${S
 // ——— персонал ———
 export const ROLE_NAMES = {
   pps: 'Патрульно-постовая служба', oper: 'Оперуполномоченный', duty: 'Дежурный', uchastkovy: 'Участковый инспектор',
-  driver: 'Водитель', guard: 'Конвой ИВС', kinolog: 'Кинолог', secretary: 'Секретарь-машинистка',
+  driver: 'Водитель', guard: 'Конвой ИВС', kinolog: 'Кинолог', secretary: 'Секретарь-машинистка', sledovatel: 'Следователь', spec: 'Боец спецподразделения',
 };
-export const ROLE_SHORT = { pps: 'ППС', oper: 'опер', duty: 'дежурный', uchastkovy: 'участковый', driver: 'водитель', guard: 'конвой', kinolog: 'кинолог', secretary: 'секретарь' };
+export const ROLE_SHORT = { pps: 'ППС', oper: 'опер', duty: 'дежурный', uchastkovy: 'участковый', driver: 'водитель', guard: 'конвой', kinolog: 'кинолог', secretary: 'секретарь', sledovatel: 'следователь', spec: 'спецназ' };
 export const RANK_SHORT = {
   'служащая': 'служ.',
   'рядовой': 'ряд.', 'младший сержант': 'мл. с-т', 'сержант': 'с-т', 'старший сержант': 'ст. с-т', 'старшина': 'ст-на',

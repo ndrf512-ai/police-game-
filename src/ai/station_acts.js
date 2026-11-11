@@ -50,7 +50,7 @@ export const ACTS = [
       const game = b.st.game; const dep = game.sim?.departments; if (!dep) return null;
       const q = dep.pendingPapers(game); if (!q.length) return null;
       const pq = q[0]; pq.carried = true;
-      const from = { ugro: 'dept_ugro', pps: 'dept_pps', uchastok: 'dept_uchastok', duty: 'dept_duty', ivs: 'dept_ivs' }[pq.deptId] || 'dept_duty';
+      const from = { ugro: 'dept_ugro', pps: 'dept_pps', uchastok: 'dept_uchastok', duty: 'dept_duty', ivs: 'dept_ivs', sled: 'dept_sled', spec: 'dept_spec' }[pq.deptId] || 'dept_duty';
       let delivered = false;
       const steps = [
         { go: from, stand: true, optional: true },
@@ -182,6 +182,32 @@ export const ACTS = [
     },
   },
   {
+    id: 'sled_work', label: 'пишет протоколы по делам', zone: 'opers', duty: true, seat: true,
+    avail: (b) => b.role === 'sledovatel' && !b.assign,
+    score: (b) => 0.7 + 0.25 * b.disc,
+    plan: (b, def) => {
+      const p = b.st.firstFree(['opers_desk_2', 'opers_desk_1', 'dept_sled', 'corridor_bench'], b.a);
+      if (!p) return null;
+      return stay(b, def, p, { stand: p === 'dept_sled', dur: R(60, 140), tick: (b, dt, st) => { st._dt = dt; every(st, '_w', 8, () => b.a.playAnim('write', 3)); } });
+    },
+  },
+  {
+    id: 'spec_training', label: 'тренируется в оружейке', zone: 'armory', duty: true,
+    avail: (b) => b.role === 'spec' && !b.assign && !b.st.combat,
+    score: (b) => 0.55 + 0.25 * b.disc + (b.f.night ? -0.25 : 0),
+    cool: 30,
+    plan: (b, def) => {
+      const p = b.st.firstFree(['spec_rest_1', 'spec_rest_2', 'spec_rest_3'], b.a);
+      if (!p) return null;
+      const kind = b.rng.pick(['reload', 'punch', 'reload']);
+      return stay(b, def, p, {
+        stand: true, dur: R(40, 90), label: kind === 'punch' ? 'отрабатывает рукопашную' : 'тренируется с оружием',
+        tick: (b, dt, st) => { st._dt = dt; every(st, '_t', 5, () => b.a.playAnim(kind, 2)); },
+        after: (b) => { const o = b.o; if (o && o.skills) { o.flags = o.flags || {}; o.flags.specTrainDay = b.st.game.state.time.day; } },
+      });
+    },
+  },
+  {
     id: 'car', label: 'возится с машиной', zone: 'street', duty: true, outdoor: true,
     avail: (b) => b.role === 'driver' && !b.assign && b.f.minute >= 7 * 60 && b.f.minute < 21 * 60 && b.st.vehicleSpot(),
     score: (b) => 0.55,
@@ -199,7 +225,7 @@ export const ACTS = [
   },
   {
     id: 'reserve', label: 'сидит в резерве', zone: 'rest', duty: true, leisure: true, seat: true,
-    avail: (b) => !b.assign && ['pps', 'guard', 'kinolog', 'driver'].includes(b.role),
+    avail: (b) => !b.assign && ['pps', 'guard', 'kinolog', 'driver', 'spec'].includes(b.role),
     score: () => 0.32,
     plan: (b, def) => {
       const p = leisureSpot(b, ['rest_chair', 'corridor_bench', 'tv_armchair', 'v_rest_stand_2']);

@@ -11,6 +11,9 @@ import { dForm } from './city_data.js';
 import { autoTask, availableOfficers } from './city_tasks.js';
 import { answerRadio, dutySay } from './city_radio.js';
 import { availableCount } from './city_crime.js';
+import { authority as cityAuthority } from './city_core.js';
+import { cases } from './cases.js';
+import { deputy, deputyOf, appointDeputy, resolveDeputy } from './deputy.js';
 
 export const DEPTS = [
   { id: 'ugro', name: 'Уголовный розыск', short: 'УГРО', genitive: 'уголовного розыска', roles: ['oper'], room: 'opers', headTitle: 'начальник УГРО' },
@@ -18,6 +21,8 @@ export const DEPTS = [
   { id: 'uchastok', name: 'Участковые инспекторы', short: 'участковые', genitive: 'службы участковых', roles: ['uchastkovy'], room: 'corridor', headTitle: 'старший участковый' },
   { id: 'duty', name: 'Дежурная часть', short: 'дежурная часть', genitive: 'дежурной части', roles: ['duty'], room: 'duty', headTitle: 'начальник дежурной части' },
   { id: 'ivs', name: 'Конвой и ИВС', short: 'ИВС', genitive: 'ИВС', roles: ['guard'], room: 'ivs', headTitle: 'начальник ИВС' },
+  { id: 'sled', name: 'Следственное отделение', short: 'следствие', genitive: 'следственного отделения', roles: ['sledovatel'], room: 'opers', headTitle: 'начальник следственного отделения' },
+  { id: 'spec', name: 'Спецподразделение', short: 'спецназ', genitive: 'спецподразделения', roles: ['spec'], room: 'armory', headTitle: 'командир спецподразделения' },
 ];
 export const DEPT_BY_ID = Object.fromEntries(DEPTS.map((d) => [d.id, d]));
 export const DIRECTIVES = [
@@ -25,7 +30,15 @@ export const DIRECTIVES = [
   { id: 'normal', label: 'Обычно', desc: 'Работа по обстановке: начальник решает сам, что важнее, не перегружая людей.' },
   { id: 'active', label: 'Усиленно', desc: 'Отдел работает на износ: больше нарядов, рейды по любой наводке. Усталость и жалобы растут.' },
 ];
-const DIR_K = { quiet: 0.5, normal: 1, active: 1.6 };
+export const SPEC_DIRECTIVES = [
+  { id: 'standby', label: 'Резерв', desc: 'Спецподразделение сидит в оружейке и тренируется. Только оборона отдела и ваши прямые приказы.' },
+  { id: 'ready', label: 'Готовность', desc: 'Угрозыск берёт бойцов на рейды и засады. При угрозе нападения командир сам вызывает свободных из дома.' },
+  { id: 'active', label: 'Активно', desc: 'Командир сам организует рейды по наводкам и поднимает людей из дома. Усталость растёт, результаты — тоже.' },
+];
+const SPEC_IDS = SPEC_DIRECTIVES.map((x) => x.id);
+const DIR_IDS = DIRECTIVES.map((x) => x.id);
+export function directivesFor(deptId) { return deptId === 'spec' ? SPEC_DIRECTIVES : DIRECTIVES; }
+const DIR_K = { quiet: 0.5, normal: 1, active: 1.6, standby: 0.5, ready: 1 };
 
 /* ------------------------------------------------------------------ состояние */
 function S(game) { const s = game.state; if (!s.departments) s.departments = {}; return s.departments; }
@@ -36,7 +49,8 @@ function ensureDept(game, id) {
   if (!all[id]) all[id] = { id, headId: null, directive: 'normal', autonomy: true, focusDistrict: null, stats: emptyStats(), today: emptyStats(), nextThink: 0, lastReportDay: 0, notes: [], trust: 50, unsigned: 0 };
   const d = all[id];
   if (!d.stats) d.stats = emptyStats(); if (!d.today) d.today = emptyStats(); if (!Array.isArray(d.notes)) d.notes = [];
-  if (!DIR_K[d.directive]) d.directive = 'normal'; if (d.autonomy == null) d.autonomy = true; if (d.trust == null) d.trust = 50; if (d.unsigned == null) d.unsigned = 0;
+  if (id === 'spec') { if (!SPEC_IDS.includes(d.directive)) d.directive = 'ready'; } else if (!DIR_IDS.includes(d.directive)) d.directive = 'normal';
+  if (d.autonomy == null) d.autonomy = true; if (d.trust == null) d.trust = 50; if (d.unsigned == null) d.unsigned = 0;
   return d;
 }
 export function deptOfRole(role) { return DEPTS.find((d) => d.roles.includes(role)) || null; }
@@ -90,7 +104,7 @@ export function appointHead(game, deptId, officerId, by = 'player') {
   } else if (prev) { prev.flags = prev.flags || {}; delete prev.flags.headOf; emit(game, 'dept:head', { deptId, officerId: null, by }); }
   return { ok: true, officer: o };
 }
-export function setDirective(game, deptId, directive) { const d = ensureDept(game, deptId); if (!DIR_K[directive]) return { ok: false }; d.directive = directive; emit(game, 'dept:directive', { deptId, directive }); return { ok: true }; }
+export function setDirective(game, deptId, directive) { const d = ensureDept(game, deptId); if (!directivesFor(deptId).some((x) => x.id === directive)) return { ok: false }; d.directive = directive; emit(game, 'dept:directive', { deptId, directive }); return { ok: true }; }
 export function setAutonomy(game, deptId, on) { const d = ensureDept(game, deptId); d.autonomy = !!on; return { ok: true }; }
 export function setFocus(game, deptId, districtId) { const d = ensureDept(game, deptId); d.focusDistrict = districtId || null; return { ok: true }; }
 
@@ -131,7 +145,7 @@ function thinkUgro(game, d, A, now, rng) {
   const c = C(game);
   // 1. висяки: нераскрытые заявления без наряда
   if (mine.filter((t) => t.type === 'investigate').length < maxOpen) {
-    const open = (c.crimes || []).filter((cr) => cr && ['new', 'unsolved'].includes(cr.status) && !cr.inProgress && !cr.assignedTaskId && !cr.missing && num(cr.severity, 1) >= (d.directive === 'quiet' ? 3 : 2))
+    const open = (c.crimes || []).filter((cr) => cr && ['new', 'unsolved'].includes(cr.status) && !cr.inProgress && !cr.assignedTaskId && !cr.missing && !cr.kuspPending && num(cr.severity, 1) >= (d.directive === 'quiet' ? 3 : 2))
       .filter((cr) => !liveTasks(game).some((t) => t.targetCrimeId === cr.id))
       .sort((a, b) => num(b.severity, 1) - num(a.severity, 1) || (d.focusDistrict ? (b.districtId === d.focusDistrict) - (a.districtId === d.focusDistrict) : 0));
     if (open.length) {
@@ -148,12 +162,14 @@ function thinkUgro(game, d, A, now, rng) {
     const rel = num(it.reliability, 0.6);
     if (rel < (d.directive === 'active' ? 0.35 : d.directive === 'quiet' ? 0.75 : 0.55)) continue;
     if (it.window && it.window.from - now > 90) continue;
-    if (it.opens.includes('raid') && free.length + availableCount(game, ['pps']) >= 3 && mine.filter((t) => t.type === 'raid').length === 0) {
-      const r = autoTask(game, 'raid', { districtId: it.districtId, targetId: 'in:' + it.id, n: 4, roles: ['oper', 'pps'] });
+    const withSpec = ensureDept(game, 'spec').directive !== 'standby' && specAvailable(game).length >= 2;
+    if (it.opens.includes('raid') && free.length + availableCount(game, ['pps']) + (withSpec ? specAvailable(game).length : 0) >= 3 && mine.filter((t) => t.type === 'raid').length === 0) {
+      const r = autoTask(game, 'raid', { districtId: it.districtId, targetId: 'in:' + it.id, n: 4, roles: withSpec ? ['spec', 'oper'] : ['oper', 'pps'] });
+      if (r && r.ok && withSpec) { const sd = ensureDept(game, 'spec'); sd.stats.raids++; sd.today.raids++; note(game, sd, `Бойцы ушли с угрозыском на рейд (${dForm(it.districtId, 'nom')}).`); }
       if (launched(game, d, r, `Рейд по наводке (${dForm(it.districtId, 'nom')}): ${it.text}`)) { d.stats.raids++; d.today.raids++; return; }
     }
     if (it.opens.includes('ambush') && mine.filter((t) => t.type === 'ambush').length === 0 && k >= 1) {
-      const r = autoTask(game, 'ambush', { districtId: it.districtId, targetId: 'in:' + it.id, n: 3, roles: ['oper', 'pps'] });
+      const r = autoTask(game, 'ambush', { districtId: it.districtId, targetId: 'in:' + it.id, n: 3, roles: withSpec ? ['spec', 'oper'] : ['oper', 'pps'] });
       if (launched(game, d, r, `Засада по наводке (${dForm(it.districtId, 'nom')}): ${it.text}`)) return;
     }
   }
@@ -204,6 +220,82 @@ function thinkUchastok(game, d, A, now, rng) {
     if (target) { const r = autoTask(game, 'patrol', { districtId: target.id, n: 1, roles: ['uchastkovy'] }); launched(game, d, r, `Участковый — на обход (${dForm(target.id, 'nom')}).`); }
   }
 }
+/* ------------------------------------------------------------------ спецподразделение */
+/** Бойцы спецподразделения, готовые к выезду прямо сейчас */
+export function specAvailable(game) {
+  const now = absNow(game);
+  return availableOfficers(game).filter((o) => o.role === 'spec' && !(o.restUntil && now < o.restUntil) && num(o.fatigue, 0) < 85);
+}
+function specMembers(game) { return members(game, 'spec'); }
+function ensureGroupLeaders(game) {
+  const mem = specMembers(game); if (mem.length < 3) return;
+  const h = head(game, 'spec');
+  const want = mem.length >= 5 ? 2 : 1;
+  const cur = mem.filter((o) => o.flags && o.flags.groupLeader && o !== h);
+  if (cur.length >= want) return;
+  const cand = mem.filter((o) => o !== h && !(o.flags && o.flags.groupLeader)).sort((a, b) => headScore(b) + sk(b, 'tactics') / 200 - headScore(a) - sk(a, 'tactics') / 200);
+  for (const o of cand.slice(0, want - cur.length)) { o.flags = o.flags || {}; o.flags.groupLeader = true; o.history?.push?.({ day: game.state.time.day, text: 'Назначен командиром группы спецподразделения.' }); }
+}
+/** Вызвать свободных от смены бойцов из дома */
+function summonSpec(game, why) {
+  const set = dep(game, 'staff', 'setShift'); if (!set) return 0;
+  let n = 0;
+  for (const o of specMembers(game)) {
+    if (o.status !== 'home' || o.onShift) continue;
+    const r = (() => { try { return set(game, o.id, true); } catch (e) { return null; } })();
+    if (r && r.ok) n++;
+  }
+  if (n) note(game, ensureDept(game, 'spec'), `Из дома вызвано бойцов: ${n} (${why}).`);
+  return n;
+}
+/** Группа обороны «Спецназ» (при предупреждении о нападении) */
+export function specDefense(game, why) {
+  const cb = game.combat; if (!cb || typeof cb.createGroup !== 'function') return null;
+  const d = ensureDept(game, 'spec');
+  if (d.directive !== 'standby') summonSpec(game, why);
+  const here = specMembers(game).filter((o) => o.status === 'station' && !isDown(o));
+  if (!here.length) { d.pendingGroup = true; return null; }
+  const h = head(game, 'spec');
+  const leader = (h && here.includes(h)) ? h : here.find((o) => o.flags && o.flags.groupLeader) || here.slice().sort((a, b) => headScore(b) - headScore(a))[0];
+  const ids = here.map((o) => o.id);
+  const groups = game.state.defense?.groups || [];
+  // бойцы уходят из прочих групп
+  for (const g of groups) { if (g.spec) continue; if (Array.isArray(g.memberIds)) g.memberIds = g.memberIds.filter((x) => !ids.includes(x)); if (ids.includes(g.leaderId)) { g.leaderId = (g.memberIds || []).shift() || null; } }
+  const ex = groups.find((g) => g.spec);
+  let r;
+  try {
+    if (ex) r = cb.updateGroup(ex.id, { leaderId: leader.id, memberIds: ids.filter((x) => x !== leader.id) });
+    else { r = cb.createGroup({ name: 'Спецназ', leaderId: leader.id, memberIds: ids.filter((x) => x !== leader.id), zoneId: 'lobby', doctrine: { hold: 'counter', roe: 'free', fallbackAt: 0.25, note: 'Спецподразделение: контратака, держать вестибюль.' } }); if (r && r.group) r.group.spec = true; }
+  } catch (e) { console.error('[dept spec group]', e); return null; }
+  d.pendingGroup = false;
+  note(game, d, `${rankShort(leader.rank)} ${leader.lastName}: группа «Спецназ» (${ids.length} чел.) — на рубеже в вестибюле.`);
+  emit(game, 'dept:spec_group', { leaderId: leader.id, memberIds: ids });
+  return r;
+}
+function thinkSpec(game, d, A, now, rng) {
+  ensureGroupLeaders(game);
+  if (d.pendingGroup && (game.state.attackPlans || []).some((p) => !p.done && !p.resolved)) specDefense(game, 'угроза нападения');
+  if (d.directive !== 'active') return;
+  const h = hourOf(now);
+  if (d.summonDay !== game.state.time.day && h >= 9 && h < 21) { d.summonDay = game.state.time.day; summonSpec(game, 'режим «активно»'); }
+  const free = specAvailable(game);
+  if (free.length < 2 || deptTasks(game, 'spec').length >= 1) return;
+  const c = C(game); const form = headForm(A.o);
+  const intel = (c.intel || []).filter((it) => it.revealed && !it.used && it.expires > now && !it.reserved && it.opens && (it.opens.includes('raid') || it.opens.includes('ambush')) && !liveTasks(game).some((t) => t.targetId === 'in:' + it.id) && num(it.reliability, 0.6) >= 0.4 - form * 0.1);
+  if (!intel.length) return;
+  const it = rng.chance(mistakeChance(form)) ? rng.pick(intel) : intel.sort((a, b) => num(b.reliability, 0.5) - num(a.reliability, 0.5))[0];
+  const type = it.opens.includes('raid') ? 'raid' : 'ambush';
+  const r = autoTask(game, type, { districtId: it.districtId, targetId: 'in:' + it.id, n: Math.min(4, free.length + 1), roles: ['spec', 'oper'] });
+  if (launched(game, d, r, `${rankShort(A.o.rank)} ${A.o.lastName}: ${type === 'raid' ? 'рейд' : 'засада'} по наводке (${dForm(it.districtId, 'nom')}).`)) { d.stats.raids++; d.today.raids++; }
+}
+function thinkSled(game, d, A) {
+  try { cases.update(game, A ? A.o : null, d.autonomy); } catch (e) { console.error('[dept sled]', e); }
+}
+/* ------------------------------------------------------------------ распоряжения дежурной части */
+function dutyOrders(game) { return (game.state.duty && game.state.duty.orders) || {}; }
+function dutyDnd(game, now) { const o = dutyOrders(game); return !!(o.dndUntil && now < o.dndUntil); }
+function holdAll(game, now) { const o = dutyOrders(game); return !!(o.holdUntil && now < o.holdUntil); }
+
 /** Запросы по рации (вызовы, оперы, розыск), которые отделы берут на себя при самостоятельности */
 function answerRequests(game, now, rng) {
   const list = game.state.radio || [];
@@ -211,7 +303,7 @@ function answerRequests(game, now, rng) {
     if (!m || m.answered || !m.choices || !m.choices.length || !m.meta || !m.meta.type) continue;
     const type = m.meta.type; const deptId = type === 'call' ? 'duty' : type === 'oper' ? 'ugro' : type === 'missing' ? 'uchastok' : null;
     if (!deptId) continue;
-    const d = ensureDept(game, deptId); if (!d.autonomy) continue;
+    const d = ensureDept(game, deptId); if (!d.autonomy && !(deptId === 'duty' && dutyDnd(game, now))) continue;
     const A = acting(game, deptId); if (!A.o) continue;
     const form = headForm(A.o);
     // решение занимает время: сильный — минуту-две, слабый — тянет (может и не успеть)
@@ -288,7 +380,7 @@ function dailyPaper(game, deptId) {
   const mem = members(game, deptId);
   const tired = mem.filter((o) => num(o.fatigue, 0) > 70);
   if (tired.length >= 2) asks.push({ id: 'rest', label: `Дать отделу день передышки`, desc: 'Снять директиву на сутки: усталость −, настроение +.', effect: 'rest' });
-  if (mem.length <= 2 && deptId !== 'duty') asks.push({ id: 'people', label: 'Пообещать людей', desc: 'Начальник ждёт пополнения из кандидатов; если не будет — обида.', effect: 'people' });
+  if (mem.length <= 2 && !['duty', 'sled', 'spec'].includes(deptId)) asks.push({ id: 'people', label: 'Пообещать людей', desc: 'Начальник ждёт пополнения из кандидатов; если не будет — обида.', effect: 'people' });
   if ((st.missed || 0) >= 2) asks.push({ id: 'car', label: 'Выделить машину отделу в первую очередь', desc: 'Наряды отдела будут получать УАЗ первыми.', effect: 'car' });
   if ((st.solved || 0) + (st.detained || 0) >= 3 && A.o) asks.push({ id: 'bonus', label: `Премировать отличившихся (200 тыс.)`, desc: 'Деньги из кассы, настроение отдела +.', effect: 'bonus' });
   const text = [
@@ -298,7 +390,10 @@ function dailyPaper(game, deptId) {
     asks.length ? 'Прошу рассмотреть.' : (A.o && (A.o.traits || []).includes('pedant') ? 'Замечаний нет. Подпись.' : rng.pick(['Жалоб нет.', 'Работаем.', 'Прошу ознакомиться.'])),
   ].filter(Boolean).join('\n');
   const choices = [{ id: 'sign', label: 'Подписать', desc: 'Принять к сведению.' }, ...asks, { id: 'return', label: 'Вернуть: «Переделать, мало»', desc: 'Начальник обидится, но в следующий раз напишет подробнее.' }];
-  const item = { source: 'dept', kind: 'dept_report', deptId, officerId: h ? h.id : A.o ? A.o.id : null, title: `Доклад: ${def.short}`, text, choices, autoChoice: null, data: { asks: asks.map((a) => a.id) } };
+  let extra = '';
+  if (deptId === 'sled') { const cs = cases.stats(game); extra = `\nДел в производстве: ${cs.open}, готовы к передаче: ${cs.ready}, просрочено: ${cs.overdue}. Всего направлено в прокуратуру: ${cs.sent}, принято: ${cs.closed}, возвращено: ${cs.returned}.`; }
+  if (deptId === 'spec') { const av = specAvailable(game).length; extra = `\nРежим: ${(SPEC_DIRECTIVES.find((x) => x.id === d.directive) || SPEC_DIRECTIVES[1]).label.toLowerCase()}. Готовы к выезду: ${av} из ${mem.length}.`; }
+  const item = { source: 'dept', kind: 'dept_report', deptId, officerId: h ? h.id : A.o ? A.o.id : null, title: `Доклад: ${def.short}`, text: text + extra, choices, autoChoice: 'sign', expires: { day: game.state.time.day + 2, minute: 8 * 60 }, data: { asks: asks.map((a) => a.id) } };
   d.stats.papers++; d.unsigned++;
   // сброс суточной статистики
   d.today = emptyStats();
@@ -318,7 +413,7 @@ export function answerPaper(game, item, choiceId) {
     case 'sign': d.trust = clamp(d.trust + 2, 0, 100); return 'Подписано. Отдел работает дальше.';
     case 'rest': d.restDay = game.state.time.day + 1; bump(6); for (const o of mem) o.fatigue = clamp(num(o.fatigue, 0) - 15, 0, 100); d.trust = clamp(d.trust + 5, 0, 100); return `${def.name}: сутки без директивы, люди отдохнут.`;
     case 'people': d.promisedPeople = game.state.time.day + 5; d.trust = clamp(d.trust + 3, 0, 100); return 'Обещали пополнение. Начальник ждёт — не забудьте про кандидатов.';
-    case 'car': for (const x of Object.values(S(game))) x.carPriority = false; d.carPriority = true; d.trust = clamp(d.trust + 4, 0, 100); return `УАЗ — в первую очередь ${def.genitive}.`;
+    case 'car': for (const def0 of DEPTS) ensureDept(game, def0.id).carPriority = false; d.carPriority = true; d.trust = clamp(d.trust + 4, 0, 100); return `УАЗ — в первую очередь ${def.genitive}.`;
     case 'bonus': { const econ = game.state.economy; if (econ && econ.money >= 200) { econ.money -= 200; glog(game, `Премия отделу ${def.genitive}: −200 тыс.`, 'money'); bump(10); d.trust = clamp(d.trust + 8, 0, 100); if (h) h.loyalty = clamp(num(h.loyalty, 50) + 5, 0, 100); return 'Премия выплачена. В отделе оживление.'; } return 'В кассе нет двухсот тысяч — премия не выплачена, обещание повисло.'; }
     case 'return': bump(-3); d.trust = clamp(d.trust - 6, 0, 100); if (h) { h.morale = clamp(num(h.morale, 50) - 6, 0, 100); h.history?.push?.({ day: game.state.time.day, text: 'Доклад возвращён начальником на доработку.' }); } return 'Бумага вернулась в отдел. Начальник сжал зубы.';
     default: return 'Принято.';
@@ -337,6 +432,31 @@ function onTaskReturn(game, p) {
   if ((res.killed || []).length) { d.trust = clamp(d.trust - 10, 0, 100); note(game, d, `Потери в наряде ${t.rt?.callsign || ''}.`); }
 }
 
+/* ------------------------------------------------------------------ состав 1.1 */
+/** Спецподразделение прибыло со своим оружием: автоматы, бронежилеты, каски — на склад и сразу бойцам */
+function setupSpec(game) {
+  const mem = specMembers(game); if (!mem.length) return;
+  const all = S(game); if (all._specEquipped) return; all._specEquipped = true;
+  ensureGroupLeaders(game);
+  const e = game.state.economy; const issue = dep(game, 'economy', 'issue');
+  if (e && e.inventory && issue) {
+    const n = mem.length;
+    for (const [k, q] of [['pm', n], ['aks74u', n], ['zh81', n], ['helmet_ssh68', n], ['radio_old', 2]]) e.inventory[k] = (e.inventory[k] || 0) + q;
+    if (e.ammo) e.ammo['5.45x39'] = (e.ammo['5.45x39'] || 0) + 120 * n;
+    for (const o of mem) for (const it of ['pm', 'aks74u', 'zh81', 'helmet_ssh68']) { try { issue(game, o.id, it, { silent: true }); } catch (er) { /* нет предмета — без него */ } }
+    for (const o of mem.filter((x) => x.flags && x.flags.groupLeader).slice(0, 2)) { try { issue(game, o.id, 'radio_old', { silent: true }); } catch (er) { /* */ } }
+  }
+}
+function migrateUnits(game, rng) {
+  const st = game.state.staff || []; const mk = dep(game, 'staff', 'makeOfficer'); if (!mk) return 0;
+  let n = 0;
+  const add = (role, k) => { const o = mk(game, rng, { role }); o.status = 'home'; o.onShift = false; if (o.schedule === 'rotation') o.shiftGroup = k % 3; st.push(o); n++; return o; };
+  if (!st.some((o) => o.role === 'sledovatel')) add('sledovatel', 0);
+  if (!st.some((o) => o.role === 'spec')) for (let k = 0; k < 5; k++) add('spec', k);
+  if (n) { for (const def of DEPTS) { ensureDept(game, def.id); if (!head(game, def.id)) { const h = pickHead(game, def.id); if (h) appointHead(game, def.id, h.id, 'init'); } } setupSpec(game); }
+  return n;
+}
+
 /* ------------------------------------------------------------------ модуль */
 export const departments = {
   DEPTS, DIRECTIVES,
@@ -347,6 +467,7 @@ export const departments = {
       if (!head(game, def.id)) { const h = pickHead(game, def.id); if (h) appointHead(game, def.id, h.id, 'init'); }
       d.nextThink = absNow(game) + R(game).int(5, 40);
     }
+    try { setupSpec(game); } catch (e) { console.error('[dept spec init]', e); }
     this.attach(game);
     return all;
   },
@@ -354,6 +475,8 @@ export const departments = {
     if (!game.bus || game._deptAttached) return;
     game._deptAttached = true;
     game.bus.on('task:return', (p) => { try { onTaskReturn(game, p); } catch (e) { console.error('[dept]', e); } });
+    game.bus.on('attack:warning', () => { try { specDefense(game, 'предупреждение о нападении'); } catch (e) { console.error('[dept spec]', e); } });
+    game.bus.on('attack:start', () => { try { if (!(game.state.defense?.groups || []).some((g) => g.spec)) specDefense(game, 'нападение'); } catch (e) { console.error('[dept spec]', e); } });
   },
   /** вызывается каждый игровой «тик» (dtMin минут) */
   update(game, dtMin) {
@@ -368,8 +491,10 @@ export const departments = {
       const A = acting(game, def.id);
       const form = A.o ? headForm(A.o) : 0;
       d.nextThink = now + Math.round(12 + (1 - form) * 30 + rng.int(0, 10));
+      if (def.id === 'sled') { thinkSled(game, d, A); continue; }
       if (!A.o || game.combat?.active) continue;
       if (!d.autonomy && def.id !== 'duty') continue;
+      if (holdAll(game, now) && ['ugro', 'pps', 'uchastok', 'spec'].includes(def.id)) continue; // «всех на участок»
       // без начальника отдел «работает по инерции»: думает реже и хуже
       if (A.deputy && rng.chance(0.45)) continue;
       // бумаги без резолюции: начальник ждёт решений и работает вполсилы
@@ -378,15 +503,21 @@ export const departments = {
         if (def.id === 'ugro') thinkUgro(game, d, A, now, rng);
         else if (def.id === 'pps') thinkPps(game, d, A, now, rng);
         else if (def.id === 'uchastok') thinkUchastok(game, d, A, now, rng);
+        else if (def.id === 'spec') thinkSpec(game, d, A, now, rng);
       } catch (e) { console.error('[dept ' + def.id + ']', e); }
     }
     if (((this._reqT = (this._reqT || 0) + dtMin)) >= 1) { this._reqT = 0; try { answerRequests(game, now, rng); } catch (e) { console.error('[dept requests]', e); } }
+    try { deputy.update(game, dtMin, headScore, headForm); } catch (e) { console.error('[deputy]', e); }
     // бумаги, которые никто не понёс
     const q = game.state.papersQueue; if (Array.isArray(q) && q.length) { for (const pq of q.slice()) { if (!pq.carried && now - pq.at > 60) { this.deliverPaper(game, pq.id, null); } } }
     void all;
   },
   dayStart(game) {
     const all = S(game);
+    try { cases.dayStart(game); } catch (e) { console.error('[cases]', e); }
+    // бойцы, тренировавшиеся вчера, прибавляют в огневой и тактике
+    for (const o of specMembers(game)) if (o.flags && o.flags.specTrainDay >= game.state.time.day - 1 && o.skills) { for (const k of ['shooting', 'tactics', 'fitness']) o.skills[k] = Math.min(95, num(o.skills[k], 50) + 0.4); }
+    ensureGroupLeaders(game);
     for (const def of DEPTS) {
       const d = ensureDept(game, def.id);
       if (!head(game, def.id)) { const h = pickHead(game, def.id); if (h) appointHead(game, def.id, h.id, 'auto'); }
@@ -409,9 +540,22 @@ export const departments = {
   pendingPapers(game) { return (game.state.papersQueue || []).filter((x) => !x.carried); },
   // API
   head, acting, members, deptOf, deptOfRole, isHead, headDeptId, appointHead, setDirective, setAutonomy, setFocus, headScore, headForm, headQualityText, reportLines, answerPaper,
+  SPEC_DIRECTIVES, directivesFor, specAvailable, specDefense, cases,
+  deputy(game) { return deputyOf(game); },
+  appointDeputy(game, officerId) { return appointDeputy(game, officerId, headScore); },
+  deputyActive(game) { return deputy.deputyActive(game); },
+  sendCase(game, caseId) { return cases.sendCase(game, caseId, 'player'); },
+  /** Ответ на бумаги заместителя/следствия/спецподразделения */
+  resolveInbox(game, it, choiceId) {
+    if (it.source === 'deputy') return resolveDeputy(game, it, choiceId);
+    if (it.source === 'cases' && it.data && it.data.caseId) { if (choiceId === 'send') { const r = cases.sendCase(game, it.data.caseId, 'player'); return r.ok ? r.text : r.reason; } return 'Дело остаётся в производстве.'; }
+    return 'Принято.';
+  },
+  /** Сохранения до 1.1: добавить следователя и спецподразделение */
+  migrate(game, rng) { return migrateUnits(game, rng); },
   get(game, id) { return ensureDept(game, id); },
   all(game) { return DEPTS.map((def) => ({ def, d: ensureDept(game, def.id), head: head(game, def.id), acting: acting(game, def.id), members: members(game, def.id) })); },
   /** Доклад начальника на планёрке (утро) — строки для брифинга */
-  briefingLines(game) { return DEPTS.map((def) => { const A = acting(game, def.id); const d = ensureDept(game, def.id); return A.o ? `${def.short}: ${rankShort(A.o.rank)} ${A.o.lastName}${A.deputy ? ' (и.о.)' : ''} — ${DIRECTIVES.find((x) => x.id === d.directive)?.label.toLowerCase() || ''}${d.autonomy ? '' : ', по команде'}.` : `${def.short}: начальника нет.`; }); },
+  briefingLines(game) { return DEPTS.map((def) => { const A = acting(game, def.id); const d = ensureDept(game, def.id); return A.o ? `${def.short}: ${rankShort(A.o.rank)} ${A.o.lastName}${A.deputy ? ' (и.о.)' : ''} — ${directivesFor(def.id).find((x) => x.id === d.directive)?.label.toLowerCase() || ''}${d.autonomy ? '' : ', по команде'}.` : `${def.short}: начальника нет.`; }); },
 };
 export default departments;

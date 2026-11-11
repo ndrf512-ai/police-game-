@@ -8,6 +8,7 @@ import { economy } from '../src/sim/economy.js';
 import { detainees } from '../src/sim/detainees.js';
 import { campaign } from '../src/sim/campaign.js';
 import { departments } from '../src/sim/departments.js';
+import { duty } from '../src/sim/duty.js';
 import { StationAI } from '../src/ai/station.js';
 import { Combat } from '../src/ai/combat.js';
 
@@ -17,7 +18,7 @@ console.error = (...a) => { const k = a.map((x) => (x && x.stack ? x.stack.split
 console.warn = (...a) => { const k = 'WARN ' + a.map((x) => (x && x.message ? x.message + ' @ ' + (x.stack || '').split('\n')[1] : String(x))).join(' ').slice(0, 400); errs.set(k, (errs.get(k) || 0) + 1); };
 globalThis.localStorage = { _d: {}, getItem(k) { return this._d[k] ?? null; }, setItem(k, v) { this._d[k] = String(v); } };
 
-const game = new Game({ sim: { crimes, city, staff, economy, detainees, campaign, departments }, seed });
+const game = new Game({ sim: { crimes, city, staff, economy, detainees, campaign, departments, duty }, seed });
 game.StationAI = StationAI; game.combat = new Combat(game);
 const ev = {}; game.bus.on('*', ({ ev: e }) => { ev[e] = (ev[e] || 0) + 1; });
 const attacks = []; game.bus.on('attack:end', (p) => attacks.push({ day: game.state.time.day, t: game.timeStr(), ...p }));
@@ -28,6 +29,9 @@ console.log('Старт:', S.player.lastName, S.player.firstName, '| соста�
 const inp = { mx: 0, my: 0, run: false, lookDX: 0, lookDY: 0, pressed: new Set(), held: new Set() };
 // группа обороны
 const av0 = staff.available(game).slice(0, 3); if (av0.length >= 2) game.combat.createGroup({ name: 'Вестибюль', leaderId: av0[0].id, memberIds: av0.slice(1).map((o) => o.id), zoneId: 'lobby', doctrine: { hold: 'fallback', fallbackAt: 0.3, roe: 'free' } });
+// 1.1: заместитель и документы
+{ const dep = S.staff.filter((o) => ['oper', 'duty', 'uchastkovy'].includes(o.role)).sort((a, b) => departments.headScore(b) - departments.headScore(a))[0]; if (dep) departments.appointDeputy(game, dep.id); }
+const docTpls = ['req_fuel', 'memo_inventory', 'req_money', 'req_ammo'];
 let frames = 0, maxMs = 0, sumMs = 0; let lastDay = 0; let forced = false;
 const t0 = Date.now();
 while (S.time.day <= DAYS && !S.campaign.result) {
@@ -48,6 +52,7 @@ while (S.time.day <= DAYS && !S.campaign.result) {
     for (const o of S.city.offers) if (!o.answered && rng.chance(0.3)) city.answerOffer(game, o.id, rng.pick(o.choices).id);
     for (const d of S.detainees) if (d.status === 'cell' && rng.chance(0.02)) detainees.interrogate(game, d.id, rng.pick(['soft', 'hard', 'deal', 'threat', 'cellmate']));
   }
+  if (frames % 3000 === 0 && docTpls.length) { const tpl = docTpls.shift(); const r = duty.writeDoc(game, { tpl }); if (!r.ok) console.log('  документ', tpl, r.reason); const r2 = duty.writeDoc(game, { tpl: 'order_report', deptId: rng.pick(['ugro', 'sled', 'spec']) }); void r2; }
   if (!forced && S.time.day === 2 && S.time.minute > 600) { forced = true; game.combat.planAttack(game, S.city.gangs[0].id, 'тест', { inMinutes: 20 }); }
   game.speed = game.combat.active ? 1 : 10; game.paused = false;
   const t = performance.now(); game.update(0.1, inp); const ms = performance.now() - t; frames++; sumMs += ms; if (ms > maxMs) maxMs = ms;
@@ -66,6 +71,9 @@ console.log('Задержанные:', S.detainees.map((d) => `${d.person.lastNa
 console.log('Атаки:', JSON.stringify(attacks));
 console.log('Рация:', S.radio.length, '| задачи:', S.city.tasks.length, '| преступлений в памяти:', S.city.crimes.length, '| бумаги:', (S.inbox || []).length, '| предложения:', S.city.offers.length, '| планы атак:', S.attackPlans.length);
 console.log('События шины:', Object.entries(ev).sort((a, b) => b[1] - a[1]).slice(0, 28).map(([k, v]) => `${k}:${v}`).join(' '));
+{ const ds = duty.stats(game); console.log('КУСП:', JSON.stringify({ ...ds, today: undefined }), '| журнал', S.duty.journal.length, '| по статусам', JSON.stringify(S.duty.journal.reduce((m, e) => { m[e.status] = (m[e.status] || 0) + 1; return m; }, {}))); }
+console.log('Дела:', JSON.stringify(departments.cases.stats(game)), '| спецназ готов:', departments.specAvailable(game).length, '| группы обороны:', S.defense.groups.map((g) => g.name).join(', '));
+console.log('Бумаги: всего', (S.inbox || []).length, 'нерешённых', (S.inbox || []).filter((x) => !x.answered).length, 'исходящих', (S.inbox || []).filter((x) => x.dir === 'out').length, 'решений зама', (S.inbox || []).filter((x) => x.decidedBy === 'deputy').length, '| очередь секретаря', (S.papersQueue || []).length);
 console.log('\n— последние сообщения эфира —'); for (const m of S.radio.slice(-10)) console.log(`[Д${m.day} ${String(Math.floor(m.minute / 60)).padStart(2, '0')}:${String(Math.floor(m.minute % 60)).padStart(2, '0')}] ${m.callsign || m.fromName}: ${m.text.slice(0, 260)}`);
 console.log('\n— журнал (важное) —'); for (const l of S.log.filter((x) => ['important', 'story', 'authority', 'offer'].includes(x.kind)).slice(-14)) console.log(`Д${l.day}: ${l.text.slice(0, 220)}`);
 const bad = JSON.stringify(S).match(/undefined|NaN|\[object Object\]/g); console.log('\nПлохие строки в состоянии:', bad ? bad.length : 0);

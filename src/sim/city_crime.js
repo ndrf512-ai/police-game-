@@ -251,7 +251,7 @@ export function availableCount(game, roles = null) {
   const f = dep(game, 'staff', 'available');
   let list = f ? safeCall('staff.available', f, game) : null;
   if (!Array.isArray(list)) list = (game.state.staff || []).filter((o) => o.status === 'station' && o.onShift !== false);
-  return list.filter((o) => o.role !== 'duty' && (!roles || roles.includes(o.role))).length;
+  return list.filter((o) => o.role !== 'duty' && (!roles || roles.includes(o.role)) && (roles || !['spec', 'sledovatel', 'secretary'].includes(o.role))).length; // 1.1: спецназ/следствие на вызовы не шлют
 }
 
 /* ------------------------------------------------------------------ «в процессе»: вызов */
