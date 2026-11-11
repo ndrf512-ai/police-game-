@@ -193,6 +193,7 @@ export const RANKS = [
   { id: 'st_leytenant',  name: 'старший лейтенант',  full: 'старший лейтенант милиции',  short: 'ст. лейтенант', level: 9, salary: 1040, officer: true },
   { id: 'kapitan',       name: 'капитан',            full: 'капитан милиции',            short: 'капитан',      level: 10, salary: 1130, officer: true },
   { id: 'mayor',         name: 'майор',              full: 'майор милиции',              short: 'майор',        level: 11, salary: 1280, officer: true },
+  { id: 'sluzh',         name: 'служащая',           full: 'вольнонаёмная служащая',     short: 'служ.',        level: 0,  salary: 420,  officer: false, civilian: true },
 ];
 export const RANK_BY_ID = Object.fromEntries(RANKS.map((r) => [r.id, r]));
 
@@ -213,5 +214,7 @@ export const ROLES = [
     desc: 'Камеры, кормёжка задержанных, конвой в СИЗО и суд.' },
   { id: 'kinolog',    name: 'милиционер-кинолог',            short: 'кинолог',    ranks: [1, 7],  schedule: 'rotation',
     desc: 'Служебная собака: поиск, задержание, охрана двора.' },
+  { id: 'secretary',  name: 'секретарь-машинистка',          short: 'секретарь',  ranks: [12, 12], schedule: 'weekdays', civilian: true,
+    desc: 'Вольнонаёмная. Печатает, носит бумаги между отделами и кабинетом, приносит чай. В наряды и оборону не ходит.' },
 ];
 export const ROLE_BY_ID = Object.fromEntries(ROLES.map((r) => [r.id, r]));

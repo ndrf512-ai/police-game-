@@ -145,6 +145,7 @@ function poseFor(a, t) {
   };
   switch (anim) {
     case 'walk': walkLike(7.2, 0.45, 0.4); break;
+    case 'carry': walkLike(7.2, 0.45, 0); P.lSh = [-0.95, 0, 0.12]; P.rSh = [-0.95, 0, -0.12]; P.lEl = -1.45; P.rEl = -1.45; break;
     case 'run': walkLike(11, 0.75, 0.8); P.torsoRx = 0.25; P.lEl = -1.3; P.rEl = -1.3; break;
     case 'crouchwalk': walkLike(6, 0.35, 0.2); P.pelvisY = -0.32; P.lHip[0] -= 0.9; P.rHip[0] -= 0.9; P.lKn += 1.3; P.rKn += 1.3; P.torsoRx = 0.35; break;
     case 'sit': P.pelvisY = -0.47; P.lHip = [-1.5, 0.05]; P.rHip = [-1.5, -0.05]; P.lKn = 1.5; P.rKn = 1.5; P.lSh = [-0.5, 0, 0.1]; P.rSh = [-0.5, 0, -0.1]; P.lEl = -0.9; P.rEl = -0.9; P.torsoRx = -0.05 + breath; break;
@@ -169,6 +170,9 @@ function poseFor(a, t) {
   }
   // оружие в руках
   const wpn = a.look?.weapon || 'none';
+  const hold = a.data?.holding;
+  if (hold === 'papers' && !P.lie && anim !== 'sit') { P.lSh = [-0.95, 0, 0.12]; P.rSh = [-0.95, 0, -0.12]; P.lEl = -1.45; P.rEl = -1.45; }
+  else if (hold === 'mug' && !P.lie && anim !== 'drink') { P.rSh = [-0.7, 0.25, -0.15]; P.rEl = -1.6; }
   const aiming = a.data?.aiming || anim === 'aim' || anim === 'crouchaim' || anim === 'shoot';
   if (wpn !== 'none' && !P.lie) {
     const long = wpn === 'aks74u' || wpn === 'ks23' || wpn === 'shotgun' || wpn === 'sawnoff';
@@ -312,6 +316,12 @@ export function buildCharacter(geo, a, atlas, opts = {}) {
     if (side < 0 && a.anim === 'smoke') box(geo, hd, 0.02, -0.1, 0.03, 0.006, 0.006, 0.03, { front: ['white'] }, atlas, alpha);
     if (side < 0 && a.anim === 'drink') box(geo, hd, 0, -0.09, 0.05, 0.03, 0.04, 0.03, { front: ['white', [0.85, 0.8, 0.7]] }, atlas, alpha);
     if (side < 0 && a.anim === 'phone') box(geo, hd, 0, -0.07, 0.03, 0.025, 0.08, 0.025, { front: ['gun_metal'] }, atlas, alpha);
+    // предметы в руках по data.holding
+    const hold = a.data?.holding;
+    if (side < 0 && hold === 'mug' && a.anim !== 'drink') box(geo, hd, 0, -0.09, 0.05, 0.03, 0.04, 0.03, { front: ['white', [0.85, 0.8, 0.7]] }, atlas, alpha);
+    if (side < 0 && hold === 'bottle') box(geo, hd, 0, -0.1, 0.05, 0.025, 0.09, 0.025, { front: ['white', [0.35, 0.45, 0.3]] }, atlas, alpha);
+    if (side < 0 && hold === 'cigarette' && a.anim !== 'smoke') box(geo, hd, 0.02, -0.1, 0.03, 0.006, 0.006, 0.03, { front: ['white'] }, atlas, alpha);
+    if (side < 0 && hold === 'papers' && !P.lie && a.anim !== 'sit') { const g = new Xf().set(hd).mulLocal(0, -0.09, 0.06, -0.35, 0, 0); box(geo, g, -0.12, 0, 0, 0.14, 0.004, 0.1, { front: ['white', [0.92, 0.9, 0.82]], top: ['white', [0.92, 0.9, 0.82]], side: ['white', [0.85, 0.82, 0.74]] }, atlas, alpha); }
   }
   // кобура / автомат за спиной
   if (P.gun === 'holster') box(geo, pelvis, -(L.pelvisW / 2 + 0.01), 0.0, 0.0, 0.02, 0.06, 0.05, { front: ['boots'] }, atlas, alpha);

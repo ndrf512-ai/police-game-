@@ -111,6 +111,7 @@ const ROLE_SKILL = {
   pps: { shooting: 8, fitness: 10, tactics: 5 }, oper: { investigation: 30, talk: 15, perception: 10, shooting: 4 },
   duty: { discipline: 12, talk: 10, perception: 6, investigation: 6 }, uchastkovy: { talk: 20, investigation: 15, perception: 8 },
   driver: { driving: 35, fitness: 4 }, guard: { discipline: 10, fitness: 8, perception: 5 }, kinolog: { perception: 15, fitness: 10 },
+  secretary: { talk: 18, discipline: 12, perception: 4, shooting: -25, tactics: -20, fitness: -8 },
 };
 const TRAIT_SKILL = {
   marksman: { shooting: 25 }, athlete: { fitness: 25 }, driver_ace: { driving: 28 }, sharp: { perception: 20, investigation: 6 },
@@ -119,7 +120,7 @@ const TRAIT_SKILL = {
   afghan: { shooting: 15, tactics: 18 }, chechnya: { shooting: 12, tactics: 12 }, sick: { fitness: -25 }, drinker: { discipline: -10, fitness: -6 },
   leader: { tactics: 10, talk: 8 }, local: { investigation: 8, talk: 6 }, kind: { talk: 6 }, hothead: { discipline: -8 }, medic: { perception: 3 },
 };
-const ROLE_AGE = { pps: [20, 44, 28], duty: [24, 50, 36], oper: [24, 42, 31], uchastkovy: [27, 52, 38], driver: [24, 55, 38], guard: [23, 50, 34], kinolog: [21, 40, 28] };
+const ROLE_AGE = { pps: [20, 44, 28], duty: [24, 50, 36], oper: [24, 42, 31], uchastkovy: [27, 52, 38], driver: [24, 55, 38], guard: [23, 50, 34], kinolog: [21, 40, 28], secretary: [19, 48, 27] };
 const TRAIT_ROLE_BIAS = { driver: { driver_ace: 5 }, oper: { sharp: 2, talker: 1.5, ambitious: 1.5 }, uchastkovy: { local: 4, talker: 1.5, kind: 1.5 }, duty: { pedant: 2.5, silent: 1.3 }, guard: { sadist: 1.6, silent: 1.5 }, pps: { athlete: 1.5, hothead: 1.3 }, kinolog: { kind: 2, athlete: 1.5 } };
 
 function traitOk(t, o, cur) {
@@ -169,6 +170,7 @@ function genSkills(rng, o) {
 }
 function rankFor(rng, role, years, opts) {
   let [lo, hi] = ROLE_BY_ID[role].ranks;
+  if (ROLE_BY_ID[role].civilian) return RANKS[lo];
   if (role === 'duty') { if (opts.dutyChief) { lo = 8; hi = 10; } else { lo = 3; hi = 6; } }
   let lvl = opts.rookie ? lo : lo + Math.floor(years / rng.range(2.2, 3.4));
   return RANKS[clamp(lvl, lo, hi)];
@@ -182,7 +184,7 @@ function personalNo(rng) { return String(rng.int(100, 9899)).padStart(4, '0'); }
 /** Создать сотрудника. spec: {role, gender?, age?, rookie?, dutyChief?, force?:[traitId], candidate?} */
 export function makeOfficer(game, rng, spec) {
   const role = spec.role || 'pps';
-  const p = randomPerson(rng, spec.gender || null, { femaleChance: 0.15 });
+  const p = randomPerson(rng, spec.gender || null, { femaleChance: role === 'secretary' ? 0.97 : 0.15 });
   const [amin, amax, amean] = ROLE_AGE[role] || ROLE_AGE.pps;
   let age = spec.age || Math.round(clamp(rng.gauss(amean, 7), amin, amax));
   if (spec.rookie) age = rng.int(19, 23);
@@ -1793,18 +1795,18 @@ export const staff = {
     ensureState(game);
     const rng = R(game);
     const s = game.state;
-    const comp = ['duty_chief', 'duty_assist', 'oper', 'uchastkovy', 'driver', 'guard', 'pps', 'pps', 'pps', 'pps', 'pps', rng.chance(0.5) ? 'oper' : 'pps'];
+    const comp = ['duty_chief', 'duty_assist', 'oper', 'uchastkovy', 'driver', 'guard', 'pps', 'pps', 'pps', 'pps', 'pps', rng.chance(0.5) ? 'oper' : 'pps', 'secretary'];
     while (comp.length < n) comp.push(rng.pick(['pps', 'pps', 'oper', 'guard', 'driver']));
     comp.length = n;
     const nf = rng.int(2, 3);
-    const femW = { duty_assist: 3, oper: 2, guard: 1.5, pps: 1, uchastkovy: 1, duty_chief: 1, driver: 0.1 };
+    const femW = { duty_assist: 3, oper: 2, guard: 1.5, pps: 1, uchastkovy: 1, duty_chief: 1, driver: 0.1, secretary: 0 };
     const femIdx = new Set();
     let guard = 0;
     while (femIdx.size < nf && guard++ < 100) { const i = rng.weighted(comp.map((c, k) => ({ k, w: femIdx.has(k) ? 0 : femW[c] || 0.5 }))).k; femIdx.add(i); }
     const ppsIdx = comp.map((c, k) => (c === 'pps' ? k : -1)).filter((k) => k >= 0);
     const rookies = new Set(rng.sample(ppsIdx, rng.int(1, 2)));
     const list12 = comp.map((c, k) => makeOfficer(game, rng, {
-      role: c === 'duty_chief' || c === 'duty_assist' ? 'duty' : c, dutyChief: c === 'duty_chief', gender: femIdx.has(k) ? 'f' : 'm', rookie: rookies.has(k),
+      role: c === 'duty_chief' || c === 'duty_assist' ? 'duty' : c, dutyChief: c === 'duty_chief', gender: c === 'secretary' ? 'f' : femIdx.has(k) ? 'f' : 'm', rookie: rookies.has(k),
     }));
     // гарантии состава: хотя бы один пьющий и один честный
     const ensureTrait = (t) => {
@@ -1907,8 +1909,9 @@ export const staff = {
     for (const a of on) for (const b of on) if (a !== b) addRel(a, b, (a.relations[b.id] || 0) > 0 ? 0.6 : -0.3);
   },
   mod, combatStats, cohesion, leakRisk, actorLook: (o, game) => actorLook(game, o),
-  available(game) { return list(game).filter((o) => o.status === 'station' && o.onShift); },
-  ready(game) { const t = nowAbs(game); return list(game).filter((o) => o.status === 'station' && o.onShift && !(o.restUntil && t < o.restUntil) && !(o.cond.drunk > 0) && !o.injuries.some((i) => i.severity >= 2)); },
+  available(game) { return list(game).filter((o) => o.status === 'station' && o.onShift && !ROLE_BY_ID[o.role]?.civilian); },
+  civilian(o) { return !!(o && ROLE_BY_ID[o.role] && ROLE_BY_ID[o.role].civilian); },
+  ready(game) { const t = nowAbs(game); return list(game).filter((o) => o.status === 'station' && o.onShift && !ROLE_BY_ID[o.role]?.civilian && !(o.restUntil && t < o.restUntil) && !(o.cond.drunk > 0) && !o.injuries.some((i) => i.severity >= 2)); },
   setShift, planShift, autoSchedule, reward, reprimand, promote, changeRole, fire, hire, sendLeave, sendHospital,
   talk, talkTopics, investigate, applyInjury, kill, reveal,
   describe: (o, opts) => describe(o, opts), displayName,

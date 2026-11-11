@@ -227,7 +227,7 @@ export class StationPlanScreen extends Screen {
     return cams && this.ui.power !== false;
   }
   back() { if (this.edit) { this.edit = null; this.refresh(); return true; } return false; }
-  officers() { return (this.state.staff || []).filter((o) => o.status === 'station'); }
+  officers() { return (this.state.staff || []).filter((o) => o.status === 'station' && o.role !== 'secretary'); }
   groupOf(id) { return (this.state.defense?.groups || []).find((g) => g.leaderId === id || (g.memberIds || []).includes(id)); }
   onPlanTap(hit) {
     if (!hit) return;

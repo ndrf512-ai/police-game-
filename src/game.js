@@ -79,7 +79,7 @@ export class Game {
     const S = this.sim;
     try { S.campaign?.init?.(this, this.state.mode); } catch (e) { console.error('campaign.init', e); }
     try { S.economy?.init?.(this); } catch (e) { console.error('economy.init', e); }
-    try { S.staff?.init?.(this, 12); } catch (e) { console.error('staff.init', e); }
+    try { S.staff?.init?.(this, 13); } catch (e) { console.error('staff.init', e); }
     try { S.city?.init?.(this); } catch (e) { console.error('city.init', e); }
     try { S.departments?.init?.(this); } catch (e) { console.error('departments.init', e); }
     try { S.campaign?.update?.(this); } catch (e) { console.error('campaign.update', e); }
@@ -160,6 +160,8 @@ export class Game {
     if (!s.staff.length && T.staff?.length) { s.staff = T.staff; }
     tmp.state = null;
     if (!s.departments) { try { S.departments?.init?.(this); } catch (e) { console.warn('migrate departments', e); } }
+    // секретарь появилась в 1.1
+    if (S.staff?.makeOfficer && !s.staff.some((o) => o.role === 'secretary')) { try { const o = S.staff.makeOfficer(this, new RNG((s.seed ^ 0x9e3779b9) >>> 0), { role: 'secretary', gender: 'f' }); o.status = 'home'; s.staff.push(o); } catch (e) { console.warn('migrate secretary', e); } }
   }
 
   // ——— главный шаг ———

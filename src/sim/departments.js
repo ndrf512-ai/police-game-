@@ -372,6 +372,8 @@ export const departments = {
       if (!d.autonomy && def.id !== 'duty') continue;
       // без начальника отдел «работает по инерции»: думает реже и хуже
       if (A.deputy && rng.chance(0.45)) continue;
+      // бумаги без резолюции: начальник ждёт решений и работает вполсилы
+      if (d.unsigned >= 3 && rng.chance(0.5)) { if (rng.chance(0.15)) note(game, d, 'Отдел ждёт резолюций по докладам.'); continue; }
       try {
         if (def.id === 'ugro') thinkUgro(game, d, A, now, rng);
         else if (def.id === 'pps') thinkPps(game, d, A, now, rng);

@@ -80,7 +80,7 @@ function leaderScore(o) { return sk(o, 'discipline') + sk(o, 'tactics') + rankIn
 /** собрать наряд автоматически (для «Выслать наряд» по рации, приказов начальства) */
 export function autoTask(game, type, opts = {}) {
   const def = TASK_DEF[type];
-  const pool = availableOfficers(game).filter((o) => o.role !== 'duty');
+  const pool = availableOfficers(game).filter((o) => o.role !== 'duty' && o.role !== 'secretary');
   const prefer = opts.roles || def.roles.preferred;
   const need = def.roles.required;
   const sorted = pool.slice().sort((a, b) => (prefer.includes(b.role) ? 1 : 0) - (prefer.includes(a.role) ? 1 : 0) || num(a.fatigue, 20) - num(b.fatigue, 20));
@@ -116,6 +116,7 @@ export function createTask(game, spec, internal = false) {
     if (o.onShift === false) return { ok: false, reason: `${oName(game, o)} не на смене` };
     if (isDown(o)) return { ok: false, reason: `${oName(game, o)} не в состоянии` };
     if (o.role === 'duty' && !internal) return { ok: false, reason: 'Дежурного с пульта не снять' };
+    if (o.role === 'secretary') return { ok: false, reason: `${oName(game, o)} — вольнонаёмная, в наряд не ходит` };
     offs.push(o);
   }
   if (def.roles.required && !offs.some((o) => def.roles.required.includes(o.role))) return { ok: false, reason: 'Нужен оперуполномоченный или участковый' };

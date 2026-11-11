@@ -103,7 +103,7 @@ export class ArmoryScreen extends Screen {
     });
   }
   bulkIssue() {
-    const offs = (this.state.staff || []).filter((o) => o.status === 'station' && o.onShift);
+    const offs = (this.state.staff || []).filter((o) => o.status === 'station' && o.onShift && o.role !== 'secretary');
     let n = 0;
     for (const o of offs) {
       const e = o.equipment || {};
@@ -118,7 +118,7 @@ export class ArmoryScreen extends Screen {
     this.refresh();
   }
   bulkReturn() {
-    const offs = (this.state.staff || []).filter((o) => ['home', 'leave', 'hospital'].includes(o.status) || (o.status === 'station' && !o.onShift));
+    const offs = (this.state.staff || []).filter((o) => o.role !== 'secretary' && (['home', 'leave', 'hospital'].includes(o.status) || (o.status === 'station' && !o.onShift)));
     let n = 0;
     for (const o of offs) { const e = o.equipment || {}; for (const s of ['weapon', 'armor', 'helmet', 'radio']) if ((s === 'weapon' ? e.weapon && e.weapon !== 'none' : s === 'armor' ? e.armor && e.armor !== 'none' : e[s]) && this.unissue(o, s, true)) n++; }
     this.ui.toast(n ? `Принято на склад: ${n}` : 'Всё уже сдано', n ? 'good' : 'info');

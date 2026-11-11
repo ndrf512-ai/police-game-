@@ -104,7 +104,7 @@ export class Combat {
   _ensurePoliceFighters() {
     const st = this.game.sim?.staff;
     for (const a of this.world.actors) {
-      if (a.team !== 'police' || !a.alive || this.fighters.has(a.id) || !a.visible) continue;
+      if (a.team !== 'police' || !a.alive || this.fighters.has(a.id) || !a.visible || a.data.civilian) continue;
       const o = this.officer(a.officerId); const cs = o && st?.combatStats ? st.combatStats(o) : null; const eq = o?.equipment || {};
       const wid = eq.weapon && eq.weapon !== 'none' ? eq.weapon : 'pm';
       const f = this._mk(a, 'police', { weapon: wid, reserve: Math.max(eq.ammo ?? 16, getWeapon(wid).mag || 8), acc: cs ? cs.accuracy : 0.45, courage: cs ? cs.courage : 0.55, aggr: cs ? cs.aggression : 0.45, disc: cs ? cs.discipline : 0.55, armor: eq.armor || 'none', helmet: eq.helmet, officerId: a.officerId });

@@ -28,7 +28,7 @@ export class OfficerBrain {
     this.refreshTraits();
   }
   refreshTraits() {
-    const o = this.o; this.tr = new Set(o.traits || []); this.role = o.role;
+    const o = this.o; this.tr = new Set(o.traits || []); this.role = o.role; this.civilian = o.role === 'secretary'; if (this.civilian) this.a.data.civilian = true;
     this.disc = clamp((o.skills?.discipline ?? 50) / 100 + this.T('discipline') * 0.6, 0.05, 1);
     this.courage = clamp(0.5 + this.T('courage'), 0, 1);
     const h = hash01(o.id + 'smk');
@@ -110,6 +110,8 @@ export class OfficerBrain {
     for (const d of ACTS) {
       if (d !== curDef && this.cool[d.id] > clock) continue;
       if (ov === 'rest' && d.duty) continue;
+      if (this.civilian && (d.ncivil || (d.duty && !['secretary_desk', 'carry_papers', 'serve_tea', 'hide_civil'].includes(d.id)))) continue;
+      if (!this.civilian && ['secretary_desk', 'carry_papers', 'serve_tea', 'hide_civil'].includes(d.id)) continue;
       if ((ov === 'post' || ov === 'patrol_inside') && d.duty && d.id !== 'hold_post' && d.id !== 'patrol') continue;
       if (!d.avail(this)) continue;
       let s = d.score(this) + (this.pref[d.id] || 0) + this.rng.range(-0.04, 0.04);

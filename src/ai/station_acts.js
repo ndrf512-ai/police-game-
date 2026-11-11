@@ -28,6 +28,68 @@ const sip = (b, st, dt, need, perSec, anim = 'drink') => {
 const leisureSpot = (b, ids) => b.st.firstFree(ids, b.a, true);
 
 export const ACTS = [
+  // ——— секретарь (вольнонаёмная): печатает, носит бумаги, приносит чай, при бое прячется ———
+  {
+    id: 'secretary_desk', label: 'печатает на машинке', zone: 'office', duty: true, seat: true,
+    avail: (b) => b.civilian && !b.st.combat,
+    score: (b) => 0.9 + 0.2 * b.disc,
+    plan: (b, def) => {
+      if (!b.st.isFree('secretary_desk', b.a)) return null;
+      return stay(b, def, 'secretary_desk', {
+        dur: R(40, 110),
+        tick: (b, dt, st) => { st._dt = dt; every(st, '_w', 7, () => { b.a.playAnim('write', 4); b.st.audio('typewriter', b.a.x, b.a.z, 0.4); }); },
+      });
+    },
+  },
+  {
+    id: 'carry_papers', label: 'несёт бумаги', duty: true,
+    avail: (b) => b.civilian && !b.st.combat && b.f.minute >= 8 * 60 + 15 && (b.st.game.sim?.departments?.pendingPapers?.(b.st.game) || []).length > 0,
+    score: (b) => 1.7 + 0.2 * b.disc,
+    cool: 15,
+    plan: (b, def) => {
+      const game = b.st.game; const dep = game.sim?.departments; if (!dep) return null;
+      const q = dep.pendingPapers(game); if (!q.length) return null;
+      const pq = q[0]; pq.carried = true;
+      const from = { ugro: 'dept_ugro', pps: 'dept_pps', uchastok: 'dept_uchastok', duty: 'dept_duty', ivs: 'dept_ivs' }[pq.deptId] || 'dept_duty';
+      let delivered = false;
+      const steps = [
+        { go: from, stand: true, optional: true },
+        { hold: R(2, 4), start: (b) => { b.a.playAnim('talk', 2); if (b.rng.chance(0.4)) b.say('secretary_fetch'); } },
+        { do: (b) => { b.a.data.holding = 'papers'; } },
+        { go: 'commander_desk_side', stand: true },
+        { hold: 1.6, start: (b) => { b.a.playAnim('write', 1.5); } },
+        { do: (b) => { b.a.data.holding = null; delivered = true; dep.deliverPaper(game, pq.id, b.id); b.say('secretary_paper'); } },
+        { hold: R(1, 2) },
+      ];
+      return new Seq(b, steps, { id: def.id, label: def.label, def, onEnd: (b) => { b.a.data.holding = null; if (!delivered) pq.carried = false; } });
+    },
+  },
+  {
+    id: 'serve_tea', label: 'несёт чай начальнику', duty: true,
+    avail: (b) => { const h = Math.floor(b.f.minute / 60); const slot = h === 10 ? 'am' : h === 16 ? 'pm' : null; return b.civilian && !b.st.combat && slot && !b.flags['tea_' + slot] && b.st.game.world.zoneAt(b.st.game.player.x, b.st.game.player.z) === 'office'; },
+    score: (b) => 1.3,
+    cool: 40,
+    plan: (b, def) => {
+      const h = Math.floor(b.f.minute / 60); const slot = h === 10 ? 'am' : 'pm';
+      const steps = [
+        { go: 'kettle', stand: true, optional: true, timeout: 40 },
+        { hold: R(4, 6), start: (b) => { b.a.playAnim('write', 2); } },
+        { do: (b) => { b.a.data.holding = 'mug'; b.flags['tea_' + slot] = true; } },
+        { go: 'commander_desk_side', stand: true },
+        { hold: 2, start: (b) => { b.a.data.holding = null; b.say('secretary_tea'); const g = b.st.game; if (g.world.zoneAt(g.player.x, g.player.z) === 'office') { g.player.hp = Math.min(100, g.player.hp + 3); g.bus?.emit('toast', { text: 'Секретарь принесла чай. Горячий, с сахаром.', kind: 'good' }); } } },
+      ];
+      return new Seq(b, steps, { id: def.id, label: def.label, def, onEnd: (b) => { b.a.data.holding = null; } });
+    },
+  },
+  {
+    id: 'hide_civil', label: 'прячется', duty: true,
+    avail: (b) => b.civilian && b.st.combat,
+    score: () => 9,
+    plan: (b, def) => new Seq(b, [
+      { go: 'office_corner', stand: true, run: true, optional: true, timeout: 25 },
+      { hold: 600, start: (b) => { b.a.pose = 'crouch'; b.a.data.hiding = true; if (b.rng.chance(0.5)) b.say('visitor_hide'); }, tick: (b) => (b.st.combat ? 'stay' : 'done') },
+    ], { id: def.id, label: def.label, def, onEnd: (b) => { b.a.pose = 'stand'; b.a.data.hiding = false; } }),
+  },
   // ——— обязанности ———
   {
     id: 'duty_desk', label: 'дежурит за пультом', zone: 'duty', duty: true, seat: true,
@@ -152,7 +214,7 @@ export const ACTS = [
   },
   // ——— приказы командира ———
   {
-    id: 'hold_post', label: 'держит пост', duty: true,
+    id: 'hold_post', label: 'держит пост', duty: true, ncivil: true,
     avail: (b) => b.override && b.override.type === 'post',
     score: (b) => 1.25 + 0.6 * b.disc,
     plan: (b, def) => {
@@ -165,7 +227,7 @@ export const ACTS = [
     },
   },
   {
-    id: 'patrol', label: 'обходит участок', zone: 'corridor',
+    id: 'patrol', label: 'обходит участок', zone: 'corridor', ncivil: true,
     avail: (b) => (b.override && b.override.type === 'patrol_inside') || ((b.has('pedant') || (b.f.night && b.disc > 0.75)) && !b.assign),
     score: (b) => {
       if (b.override && b.override.type === 'patrol_inside') return 1.3;

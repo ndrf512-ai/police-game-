@@ -209,6 +209,7 @@ export class StationAI {
       for (const b of this.brains.values()) {
         const a = b.a; if (!a.alive || !a.world) continue;
         if (b.talk) b.endTalk();
+        if (b.civilian) { b.endJob('combat'); this.standUp(a); a.releasePoint(); this.releaseExtra(a); b.cover = false; b.thinkT = 0.1; continue; }
         b.endJob('combat'); this.standUp(a); a.releasePoint(); this.releaseExtra(a); b.cover = false;
         if (a.look.weapon === 'none' && !a.data.wounded) b.drawWeapon();
         a.data.activity = 'combat'; a.data.activityLabel = 'в бою';
@@ -218,7 +219,7 @@ export class StationAI {
       this.game.bus?.emit('station:combat', { on: true });
     } else {
       for (const b of this.brains.values()) {
-        const a = b.a; if (!a.alive || !a.world || a.brain) continue;
+        const a = b.a; if (!a.alive || !a.world || a.brain) { if (b.civilian && a.brain === b) { b.endJob('combat_end'); a.pose = 'stand'; a.data.hiding = false; } continue; }
         a.brain = b; b.job = null; b.hold = null; b.thinkT = this.rng.range(0.5, 3); b.cleanup(); b.lockStatus = false;
         this.after(this.rng.range(15, 30), () => { if (a.brain === b && !this.combat && !this.alarm) a.look.weapon = 'none'; });
       }
@@ -378,7 +379,7 @@ export class StationAI {
     if (!a) return null;
     if (a.officerId) {
       const o = this.officer(a.officerId) || {};
-      return { gender: o.gender || a.look.gender, traits: o.traits || [], rank: o.rank || 'сержант', lastName: o.lastName || '', firstName: o.firstName || '', patronymic: o.patronymic || '', colloq: colloquial(o, o.age, o.traits || []), role: o.role };
+      return { role: o.role, gender: o.gender || a.look.gender, traits: o.traits || [], rank: o.rank || 'сержант', lastName: o.lastName || '', firstName: o.firstName || '', patronymic: o.patronymic || '', colloq: colloquial(o, o.age, o.traits || []), role: o.role };
     }
     const per = a.data.person || {};
     return { gender: per.gender || a.look.gender, traits: [], rank: '', lastName: per.lastName || '', firstName: per.firstName || '', colloq: per.firstName || '' };

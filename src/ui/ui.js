@@ -454,6 +454,7 @@ export class UI {
       else if (msg.choices && msg.choices.length && msg.answered == null) this.toast(`Запрос по рации — ${msg.callsign || msg.fromName || 'наряд'}: ${txt(msg.text)}`, 'warn', { onClick: () => this.open('radio', { filter: 'requests' }), dur: 8 });
     });
     on('offer', ({ offer }) => { if (offer) this.queue('offer', { offer }); });
+    on('dept:paper_delivered', ({ item, who }) => { if (item) this.toast(`${who ? 'Секретарь положила на стол' : 'На столе'}: ${item.title}`, 'info', { onClick: () => this.open('inbox', { itemId: item.id }), dur: 7 }); });
     on('visitor:arrive', ({ visitor }) => {
       this.lastVisitor = visitor || null;
       const p = visitor?.person;
