@@ -1,7 +1,7 @@
 name: Сборка APK
 on: [push, workflow_dispatch]
 permissions:
-  contents: read
+  contents: write
 concurrency:
   group: apk-${{ github.ref }}
   cancel-in-progress: true
@@ -27,3 +27,18 @@ jobs:
           name: uchastok-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
+      - name: Выложить APK в ветку apk (чтобы скачать без Artifacts)
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch'
+        run: |
+          set -e
+          cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/uchastok.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan apk
+          git rm -rfq . || true
+          git clean -fdxq
+          cp /tmp/uchastok.apk ./uchastok.apk
+          echo "APK игры «Участок». Собрано из ${GITHUB_SHA} (${GITHUB_REF_NAME}), $(date -u +%Y-%m-%dT%H:%MZ)." > README.md
+          git add uchastok.apk README.md
+          git commit -qm "APK из ${GITHUB_SHA::7} (${GITHUB_REF_NAME})"
+          git push -f origin apk
