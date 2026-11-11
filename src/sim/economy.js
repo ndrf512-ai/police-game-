@@ -336,6 +336,15 @@ export const economy = {
     return { ok: true, text: `Выдан аванс из кассы — ${money(cost)} на всех. Люди расписывались в ведомости и не верили.` };
   },
 
+  /** Поставки в течение дня: в день доставки привозят к 15:00 (раньше — только на утреннем разводе) */
+  tick(game) {
+    const e = E(game); if (!e || !Array.isArray(e.deliveries) || !e.deliveries.length) return;
+    const d = day(game), m = game.state.time.minute;
+    const due = e.deliveries.filter((x) => x.arriveDay < d || (x.arriveDay === d && m >= 15 * 60));
+    if (!due.length) return;
+    for (const del of due) { try { arrive(game, del); } catch (er) { console.error('[economy] arrive', er); } }
+    e.deliveries = e.deliveries.filter((x) => !due.includes(x));
+  },
   dayStart(game) {
     const e = E(game); if (!e) return;
     const rng = R(game);

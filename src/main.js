@@ -22,7 +22,7 @@ export async function boot() {
     detainees: detM?.detainees || null, campaign: campM?.campaign || null, departments: deptM?.departments || null,
   };
   if (staffM) { sim.staff && (sim.staff.TRAITS = staffM.TRAITS); }
-  if (econM) { sim.economy && (sim.economy.ITEMS = econM.ITEMS, sim.economy.UPGRADES = econM.UPGRADES); }
+  if (econM) { sim.economy && (sim.economy.ITEMS = econM.ITEMS, sim.economy.UPGRADES = econM.UPGRADES, sim.economy.CHANNELS = econM.CHANNELS); }
   const game = new Game({ sim });
   window.game = game; // для отладки
   const canvas = document.getElementById('view');
@@ -116,6 +116,7 @@ function wireEvents(game, R) {
   B.on('inbox', ({ item }) => { if (item && item.choices && item.choices.length) game.ui?.toast?.(`На столе новая бумага: ${item.title}`, 'info', { onClick: () => game.ui.open('inbox', { itemId: item.id }), dur: 7 }); });
   B.on('vehicle', (e) => { game.world.vehicleState = game.world.vehicleState || {}; game.world.vehicleState[e.id] = e.state; A()?.play?.(e.state === 'away' ? 'car_engine' : 'car_door', { x: 16, z: 25 }); });
   B.on('sfx', (e) => A()?.play?.(e.name, e));
+  B.on('delivery', (e) => { const it = game.sim.economy?.ITEMS?.[e.itemId]; game.ui?.toast?.(`Привезли: ${it ? it.name : e.itemId} ×${e.qty}. Всё на склад.`, 'good', { onClick: () => game.ui.open('supply'), dur: 6 }); A()?.play?.('car_door', { x: 16, z: 25 }); });
   B.on('step', (e) => A()?.play?.('step_' + (e.surface === 'tile' ? 'tile' : e.surface === 'concrete' ? 'concrete' : e.surface === 'lino' ? 'lino' : 'wet'), { vol: e.run ? 0.5 : 0.3 }));
   B.on('radio', () => A()?.radioBurst?.('open'));
   B.on('call:incoming', () => A()?.play?.('phone_ring', { x: 23.3, z: 17.8 }));

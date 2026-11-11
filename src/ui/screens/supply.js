@@ -1,11 +1,23 @@
 // Снабжение по телефону (каталог, улучшения, ожидаемые поставки) и сейф (касса).
 import { Screen } from './base.js';
-import { h, btn, call, money, pn, hhmm, txt, bar } from '../dom.js';
+import { h, btn, seg, call, money, pn, hhmm, txt, bar } from '../dom.js';
 import { itemsList, upgradesList, ITEM_KIND_NAMES } from '../labels.js';
 
 export class SupplyScreen extends Screen {
   static pause = true;
-  constructor(ui, params) { super(ui, params); this.tab = params.tab || 'catalog'; this.qty = {}; }
+  constructor(ui, params) { super(ui, params); this.tab = params.tab || 'catalog'; this.qty = {}; this.chan = {}; }
+  /** Каналы поставки товара: цена, сроки, описание */
+  channels(it) {
+    const raw = this.sim.economy?.ITEMS?.[it.id];
+    const CH = this.sim.economy?.CHANNELS || {};
+    const SHORT = { official: 'управление', commercial: 'коммерсант', black: 'левак' };
+    if (!raw || !raw.price || typeof raw.price !== 'object') return it.price ? [{ id: null, short: 'заказ', name: 'Заказ', price: it.price, daysText: it.days != null ? `до ${it.days} дн.` : '', desc: '' }] : [];
+    const order = ['official', 'commercial', 'black'];
+    return Object.keys(raw.price).filter((c) => typeof raw.price[c] === 'number').sort((a, b) => order.indexOf(a) - order.indexOf(b)).map((c) => {
+      const d = raw.days && raw.days[c]; const dt = Array.isArray(d) ? (d[0] === d[1] ? `${d[0]} дн.` : `${d[0]}–${d[1]} дн.`) : '1–3 дн.';
+      return { id: c, short: SHORT[c] || c, name: CH[c]?.name || c, desc: CH[c]?.desc || '', price: raw.price[c], daysText: d && d[0] === 0 ? 'сегодня к вечеру' : `доставка ${dt}` };
+    });
+  }
   get eco() { return this.state.economy || {}; }
   render() {
     const e = this.eco, day = this.state.time?.day || 1;
@@ -20,13 +32,19 @@ export class SupplyScreen extends Screen {
       body = [
         h('div.small.dim.mb', 'Звонок в ГУВД, отдел материально-технического снабжения. Что не дадут по разнарядке — найдёт ТОО «Спецснаб» за наличные.'),
         kinds.map((k) => [h('div.sect', ITEM_KIND_NAMES[k] || k), items.filter((i) => i.kind === k).map((it) => {
-          const q = this.qty[it.id] || 1, cost = it.price * q;
+          const q = this.qty[it.id] || 1;
+          const chans = this.channels(it);
+          const ch = chans.find((c) => c.id === this.chan[it.id]) || chans.find((c) => c.id === 'commercial') || chans[0];
+          const cost = ch ? ch.price * q : it.price * q;
           const inStock = it.kind === 'ammo' ? (e.ammo?.[it.ammoType] ?? null) : (e.inventory?.[it.id] ?? 0);
           const afford = (e.money ?? 0) >= cost;
+          const onOrder = deliveries.filter((d) => d.itemId === it.id).reduce((a, d) => a + (d.qty || 0), 0);
           return h('div.cat-row', { 'data-item': it.id },
-            h('div', h('div.nm', it.name), h('div.ds', `${it.desc || ''}${it.desc ? ' ' : ''}${inStock != null ? `На складе: ${inStock}.` : ''}${it.days != null ? ` Доставка: ${pn(it.days, ['день', 'дня', 'дней'])}.` : ''}`)),
-            h('div.qty', h('button', { type: 'button', 'data-act': 'minus-' + it.id, onclick: (ev) => { ev.stopPropagation(); this.qty[it.id] = Math.max(1, q - 1); this.ui.sfx('ui_click'); this.refresh(); } }, '−'), h('span', String(q)), h('button', { type: 'button', 'data-act': 'plus-' + it.id, onclick: (ev) => { ev.stopPropagation(); this.qty[it.id] = Math.min(50, q + 1); this.ui.sfx('ui_click'); this.refresh(); } }, '+')),
-            h('div', { style: 'display:flex;flex-direction:column;align-items:flex-end;gap:.2em' }, h('span.pr' + (afford ? '' : '.t-bad'), money(cost)), btn('Заказать', () => this.buy(it, q), { cls: 'slim', act: 'buy-' + it.id, disabled: !afford })));
+            h('div', h('div.nm', it.name), h('div.ds', `${it.desc || ''}${it.desc ? ' ' : ''}${inStock != null ? `На складе: ${inStock}.` : ''}${onOrder ? ` В пути: ${onOrder}.` : ''}`),
+              chans.length > 1 ? h('div', { style: 'margin-top:.25em' }, seg(chans.map((c) => ({ id: c.id, label: `${c.short} · ${money(c.price)}` })), ch.id, (v) => { this.chan[it.id] = v; this.ui.sfx('ui_click'); this.refresh(); }, { small: true, wrap: true, act: 'chan-' + it.id })) : null,
+              ch ? h('div.ds', `${ch.name}: ${ch.daysText}. ${ch.desc}`) : null),
+            h('div.qty', h('button', { type: 'button', 'data-act': 'minus-' + it.id, onclick: (ev) => { ev.stopPropagation(); this.qty[it.id] = Math.max(1, q - 1); this.ui.sfx('ui_click'); this.refresh(); } }, '−'), h('span', String(q)), h('button', { type: 'button', 'data-act': 'plus-' + it.id, onclick: (ev) => { ev.stopPropagation(); this.qty[it.id] = Math.min(99, q + 1); this.ui.sfx('ui_click'); this.refresh(); } }, '+')),
+            h('div', { style: 'display:flex;flex-direction:column;align-items:flex-end;gap:.2em' }, h('span.pr' + (afford ? '' : '.t-bad'), money(cost)), btn(afford ? 'Заказать' : 'Не хватает', () => this.buy(it, q, ch && ch.id), { cls: 'slim', act: 'buy-' + it.id, disabled: !afford || !ch })));
         })]),
       ];
     } else if (this.tab === 'upgrades') {
@@ -61,11 +79,11 @@ export class SupplyScreen extends Screen {
       body: h('div.col.grow', { style: 'gap:0;min-height:0' }, h('div.scroll.grow.pad', { 'data-scroll': 'sup-' + this.tab }, body), delivBlock),
     });
   }
-  buy(it, q) {
-    const r = call(this.sim.economy, 'buy', this.game, it.id, q);
+  buy(it, q, channel = null) {
+    const r = call(this.sim.economy, 'buy', this.game, it.id, q, channel || null);
     if (!r && !this.sim.economy?.buy) { this.ui.toast('Заказ недоступен', 'warn'); return; }
     if (r && r.ok === false) { this.ui.toast(r.reason || 'Отказ', 'bad'); return; }
-    this.ui.toast(`Заказано: ${it.name}${q > 1 ? ' × ' + q : ''}${it.days ? ` — привезут через ${pn(it.days, ['день', 'дня', 'дней'])}` : ''}`, 'money');
+    this.ui.toast(r && r.text ? r.text : `Заказано: ${it.name}${q > 1 ? ' × ' + q : ''}`, 'money', { dur: 6 });
     this.ui.sfx('phone_pickup');
     this.qty[it.id] = 1;
     this.refresh();

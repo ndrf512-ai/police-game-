@@ -185,6 +185,7 @@ export class Game {
       try { this.sim.city?.update?.(this, dt); /* dt секунд акторов = dt игровых минут */ } catch (e) { this._err('city', e); }
       try { this.sim.staff?.update?.(this, dt); } catch (e) { this._err('staff', e); }
       try { this.sim.departments?.update?.(this, dt); } catch (e) { this._err('departments', e); }
+      if ((this._ecoT = (this._ecoT || 0) + dt) > 10) { this._ecoT = 0; try { this.sim.economy?.tick?.(this); } catch (e) { this._err('economy', e); } }
       if ((this._endChk = (this._endChk || 0) + dt) > 2) { this._endChk = 0; try { this.sim.campaign?.checkEnd?.(this); } catch (e) { this._err('campaign', e); } }
     }
     // тело игрока
