@@ -421,5 +421,5 @@ export function doctrineDefs(game) {
     byKey.delete(f.key);
     return { ...f, ...s, options: s.options?.length ? s.options.map((o) => ({ ...(f.options?.find((x) => String(x.id) === String(o.id)) || {}), ...o, desc: o.desc || f.options?.find((x) => String(x.id) === String(o.id))?.desc || '' })) : f.options };
   });
-  return [...out, ...byKey.values()].filter((d) => d.key !== 'note');
+  return [...out, ...byKey.values()].filter((d) => d.key !== 'note' && (d.type === 'bool' || d.type === 'zone' || (Array.isArray(d.options) && d.options.length)));
 }

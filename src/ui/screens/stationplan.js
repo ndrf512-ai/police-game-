@@ -371,7 +371,8 @@ export class StationPlanScreen extends Screen {
       let ctl;
       if (d.type === 'zone') ctl = seg([{ id: '', label: '—' }, ...ZONES.filter((z) => z.indoor).map((z) => ({ id: z.id, label: z.name.split(' ')[0] }))], obj[d.key] || '', (v) => { obj[d.key] = v || null; }, { small: true, wrap: true, act: 'opt-' + d.key });
       else if (d.type === 'bool') ctl = toggle(!!obj[d.key], (v) => { obj[d.key] = v; }, { act: 'opt-' + d.key });
-      else ctl = seg(d.options, obj[d.key], (v, o) => { obj[d.key] = v; desc.textContent = o.desc || ''; }, { small: true, wrap: d.options.length > 3, act: 'opt-' + d.key });
+      else if (!Array.isArray(d.options) || !d.options.length) return null;
+      else ctl = seg(d.options, obj[d.key], (v, o) => { obj[d.key] = v; desc.textContent = (o && o.desc) || ''; }, { small: true, wrap: d.options.length > 3, act: 'opt-' + d.key });
       return h('div.opt-row', { style: 'grid-template-columns:1fr' }, h('div.ol', d.label), h('div', { style: 'grid-column:1' }, ctl), d.type === 'zone' ? null : h('div.od', { style: 'grid-column:1' }, desc.textContent));
     };
     const mem = (o) => {

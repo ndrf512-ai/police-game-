@@ -9,7 +9,7 @@ import {
 
 export class OfficerScreen extends Screen {
   static pause = true;
-  get o() { return (this.state.staff || []).find((x) => x.id === this.params.id); }
+  get o() { const id = this.params.id || this.params.officerId; return (this.state.staff || []).find((x) => x.id === id); }
   render() {
     const o = this.o;
     if (!o) return this.frame({ title: 'Личное дело', cls: 'small', body: h('div.empty', 'Дело не найдено.') });
@@ -19,8 +19,8 @@ export class OfficerScreen extends Screen {
     const list = this.params.list || [];
     const k = list.indexOf(o.id);
     const nav = list.length > 1 ? h('div.row', { style: 'gap:2px' },
-      h('button.win-x', { type: 'button', style: 'margin:0', 'data-act': 'prev', onclick: (e) => { e.stopPropagation(); this.params.id = list[(k - 1 + list.length) % list.length]; this.ui.sfx('ui_paper'); this.refresh(); } }, '‹'),
-      h('button.win-x', { type: 'button', style: 'margin:0', 'data-act': 'next', onclick: (e) => { e.stopPropagation(); this.params.id = list[(k + 1) % list.length]; this.ui.sfx('ui_paper'); this.refresh(); } }, '›')) : null;
+      h('button.win-x', { type: 'button', style: 'margin:0', 'data-act': 'prev', onclick: (e) => { e.stopPropagation(); this.params.id = list[(k - 1 + list.length) % list.length]; delete this.params.officerId; this.ui.sfx('ui_paper'); this.refresh(); } }, '‹'),
+      h('button.win-x', { type: 'button', style: 'margin:0', 'data-act': 'next', onclick: (e) => { e.stopPropagation(); this.params.id = list[(k + 1) % list.length]; delete this.params.officerId; this.ui.sfx('ui_paper'); this.refresh(); } }, '›')) : null;
     const rels = Object.entries(o.relations || {}).map(([id, v]) => [(this.state.staff || []).find((x) => x.id === id), v]).filter(([x]) => x).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 4);
     const fam = o.family ? [o.family.married ? (f ? 'замужем' : 'женат') : (f ? 'не замужем' : 'холост'), o.family.kids ? pn(o.family.kids, ['ребёнок', 'ребёнка', 'детей']) : 'детей нет'].join(', ') + (o.family.note ? `. ${o.family.note}` : '') : '—';
     const left = h('div.left',

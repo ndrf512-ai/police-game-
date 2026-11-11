@@ -116,8 +116,9 @@ export class Game {
   hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
   load() {
     let s = null; try { s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) { s = null; }
-    if (!s) return false;
+    if (!s || typeof s !== 'object' || !s.player || !s.time) return false;
     this.state = s; this.rng = new RNG(s.seed); if (s.rngState) this.rng.setState(s.rngState);
+    try { this._migrate(s); } catch (e) { console.error('migrate', e); }
     this.world = new World(); this._hookWorld();
     const w = s.world || {}; for (const c of w.cellDoors || []) this.world.setCellDoor(c, true);
     for (const [id, hp] of Object.entries(w.barricades || {})) this.world.setBarricade(id, hp);
@@ -125,6 +126,37 @@ export class Game {
     this._initPlayer(); if (s.player.x != null) { this.player.x = s.player.x; this.player.z = s.player.z; this.player.yaw = s.player.yaw || 0; }
     this._startRuntime(); this.bus.emit('game:loaded', {}); this.bus.emit('power', { on: s.flags?.power !== false, silent: true }); this.setSpeed(1);
     return true;
+  }
+
+  /** Дополнить сохранение прошлых версий недостающими полями (иначе экраны падают на .length/.map у undefined) */
+  _migrate(s) {
+    const fill = (dst, src) => { // переносит только отсутствующие ключи; вложенные объекты — рекурсивно
+      if (!dst || typeof dst !== 'object' || !src || typeof src !== 'object' || Array.isArray(src)) return;
+      for (const k of Object.keys(src)) {
+        const v = src[k];
+        if (dst[k] == null) dst[k] = v;
+        else if (v && typeof v === 'object' && !Array.isArray(v) && typeof dst[k] === 'object' && !Array.isArray(dst[k])) fill(dst[k], v);
+      }
+    };
+    for (const k of ['staff', 'candidates', 'detainees', 'radio', 'log', 'inbox', 'attackPlans']) if (!Array.isArray(s[k])) s[k] = [];
+    for (const k of ['flags', 'settings', 'zones']) if (!s[k] || typeof s[k] !== 'object') s[k] = {};
+    s.defense = s.defense || {}; s.defense.alert = s.defense.alert || 'normal'; if (!Array.isArray(s.defense.groups)) s.defense.groups = []; s.defense.barricades = s.defense.barricades || {};
+    if (s.flags.authority == null) s.flags.authority = 50; if (s.flags.reputation == null) s.flags.reputation = 40;
+    s.mode = s.mode || 'campaign'; s.difficulty = s.difficulty || 'normal'; s.version = s.version || 1;
+    // шаблон «свежего» состояния на тех же настройках — из него берём недостающие поля подсистем
+    const S = this.sim; const tmp = Object.create(this);
+    tmp.state = { ...s, log: [], radio: [], inbox: [], staff: [], candidates: [], detainees: [], economy: undefined, city: undefined, campaign: undefined };
+    tmp.rng = new RNG((s.seed ^ 0x5bd1e995) >>> 0); tmp.bus = { emit() { }, on() { }, once() { } }; tmp.world = this.world; tmp.station = null; tmp.combat = null;
+    const tpl = (fn) => { try { fn(); } catch (e) { console.warn('migrate template', e); } };
+    tpl(() => S.campaign?.init?.(tmp, s.mode)); tpl(() => S.economy?.init?.(tmp)); tpl(() => S.staff?.init?.(tmp, 2)); tpl(() => S.city?.init?.(tmp));
+    const T = tmp.state;
+    if (!s.campaign && T.campaign) s.campaign = T.campaign; else fill(s.campaign, T.campaign);
+    if (!s.economy && T.economy) s.economy = T.economy; else fill(s.economy, T.economy);
+    if (!s.city && T.city) s.city = T.city; else fill(s.city, T.city);
+    const oTpl = (T.staff && T.staff[0]) || null;
+    if (oTpl) for (const o of [...s.staff, ...s.candidates]) if (o && typeof o === 'object') fill(o, oTpl);
+    if (!s.staff.length && T.staff?.length) { s.staff = T.staff; }
+    tmp.state = null;
   }
 
   // ——— главный шаг ———

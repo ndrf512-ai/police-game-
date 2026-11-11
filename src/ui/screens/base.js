@@ -27,7 +27,8 @@ export class Screen {
     try { el = this.render(); }
     catch (e) {
       console.error('[ui] ошибка отрисовки экрана', this.constructor.id, e);
-      el = this.frame({ title: 'Ошибка', body: h('div.pad', h('div.note.bad', 'Экран не удалось отрисовать: ' + (e.message || e))) , cls: 'small' });
+      const where = String(e && e.stack || '').split('\n').slice(1, 3).map((l) => l.trim().replace(/^at\s+/, '').replace(/\(?https?:\/\/[^/]+\/|\(?file:\/\/[^)]*\//g, '')).join(' ← ');
+      el = this.frame({ title: 'Ошибка', cls: 'small', body: h('div.pad', h('div.note.bad', `Экран «${this.constructor.id || '?'}» не удалось отрисовать: ` + (e.message || e)), where ? h('div.small.dim', { style: 'margin-top:.4em;word-break:break-all' }, where) : null) });
     }
     if (el) this.root.appendChild(el);
     this.afterRender?.();
