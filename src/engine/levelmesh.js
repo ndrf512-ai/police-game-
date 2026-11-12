@@ -1,7 +1,7 @@
 // Построение статической геометрии участка по сетке мира: стены, окна, полы, потолки, фасад, окрестности, светильники.
 import { GeoBuilder } from './gl.js';
 import { CELL, ORIGIN, ROOMS, PROPS } from '../world/level.js';
-import { buildProp } from './props.js';
+import { buildProp, ALPHA_PROPS } from './props.js';
 import { box } from './characters.js';
 import { Xf } from './math.js';
 
@@ -183,7 +183,7 @@ export function buildLevel(world) {
 /** Мебель и светильники — в атлас предметов */
 export function buildPropsMesh(world, propAtlas, level) {
   const geo = new GeoBuilder(16384); const out = { lights: [], screens: level.screens, vehicles: level.vehicles };
-  for (const p of PROPS) { if (p.hidden) continue; geo.zone = zoneIndex(world.zoneAt(p.x, p.z)); buildProp(geo, p, propAtlas, out); }
+  for (const p of PROPS) { if (p.hidden || p.cond || ALPHA_PROPS.has(p.type)) continue; geo.zone = zoneIndex(world.zoneAt(p.x, p.z)); buildProp(geo, p, propAtlas, out); }
   // светильники дневного света
   for (const f of level.fixtures) {
     geo.zone = zoneIndex(f.room); const xf = new Xf().mulLocal(f.x, 3.0, f.z, 0, 0, 0);
@@ -193,6 +193,19 @@ export function buildPropsMesh(world, propAtlas, level) {
   }
   for (const l of out.lights) { if (!l.zones) l.zones = [zoneIndex(world.zoneAt(l.x, l.z))]; l.power = l.power ?? !l.outdoor; }
   return { geo, lights: out.lights };
+}
+
+/** «Условные» предметы (грязь, мусор, протечки — по состоянию здания) и пропы с alpha-test (лужи, пятна).
+ *  conds — массив активных тегов (state.building.conds). Строится редко: раз в сутки по 'building:changed'. */
+export function buildCondMesh(world, propAtlas, conds, geo = null) {
+  const g = geo || new GeoBuilder(2048); g.clear(); const on = new Set(conds || []);
+  const out = { lights: [], screens: [], vehicles: [] };
+  for (const p of PROPS) {
+    if (p.hidden) continue;
+    if (p.cond ? !on.has(p.cond) : !ALPHA_PROPS.has(p.type)) continue;
+    g.zone = zoneIndex(world.zoneAt(p.x, p.z)); buildProp(g, p, propAtlas, out);
+  }
+  return g;
 }
 
 // ——— помощники ———

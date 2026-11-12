@@ -104,7 +104,7 @@ export const ITEMS_FALLBACK = [
 ];
 export const ITEM_KIND_NAMES = {
   weapon: 'Оружие', armor: 'Бронезащита', helmet: 'Шлемы', radio: 'Связь', ammo: 'Боеприпасы', fuel: 'Горючее',
-  medical: 'Медицина', gear: 'Спецсредства', vehicle: 'Транспорт', repair: 'Ремонт', food: 'Быт', other: 'Прочее',
+  medical: 'Медицина', gear: 'Спецсредства', vehicle: 'Транспорт', repair: 'Ремонт', food: 'Быт', building: 'Хозяйство здания', other: 'Прочее',
 };
 export const UPGRADES_FALLBACK = [
   { id: 'bars_windows', name: 'Решётки на окна', price: 1800, days: 3, desc: 'Через окна первого этажа не залезть. Стрелять сквозь решётку — можно.' },

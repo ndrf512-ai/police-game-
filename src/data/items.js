@@ -151,6 +151,20 @@ export const ITEMS = {
   cognac: { id: 'cognac', name: 'Коньяк «Белый аист»', short: 'коньяк', category: 'gift', consumable: true, pack: 1, unit: 'бутылка',
     price: { commercial: 60 }, days: { commercial: [0, 1] },
     desc: 'Для проверяющих из управления. Официально — для протирки оптики.' },
+
+  // ---------- Хозяйство здания (sim/building.js: идут в дело сами на утреннем разводе или вручную) ----------
+  cleaning: { id: 'cleaning', name: 'Моющие и хозтовары (ящик)', short: 'хозтовары', category: 'building', consumable: true, pack: 1, unit: 'ящик',
+    price: { official: 15, commercial: 25 }, days: { official: [2, 5], commercial: [0, 1] },
+    desc: 'Хлорка, «Пемолюкс», тряпки, мыло, туалетная бумага. Без этого участок за неделю превращается в вокзальный сортир.' },
+  paint: { id: 'paint', name: 'Краска и стройматериалы', short: 'краска', category: 'building', consumable: true, pack: 1, unit: 'комплект',
+    price: { official: 40, commercial: 60 }, days: { official: [3, 7], commercial: [1, 2] },
+    desc: 'Зелёная масляная краска для панелей, побелка, шпаклёвка, петли и замки. Порядок в здании.' },
+  tech_parts: { id: 'tech_parts', name: 'Запчасти к оргтехнике', short: 'запчасти (оргтехника)', category: 'building', consumable: true, pack: 1, unit: 'комплект',
+    price: { commercial: 70, black: 45 }, days: { commercial: [1, 3], black: [0, 1] },
+    desc: 'Лента и каретка для «Ятрани», телефонные трубки, провод, паяльник мастера. Чинит машинку и телефон дежурки.' },
+  bulbs: { id: 'bulbs', name: 'Лампы дневного света и стартеры', short: 'лампы', category: 'building', consumable: true, pack: 1, unit: 'коробка',
+    price: { official: 20, commercial: 30 }, days: { official: [2, 5], commercial: [0, 1] },
+    desc: 'Коробка ЛБ-40, стартеры, пробки. Без них проводка искрит и свет гаснет в самый неподходящий момент.' },
 };
 export const ITEM_LIST = Object.values(ITEMS);
 
@@ -284,6 +298,10 @@ export const UPGRADES = {
     desc: 'Две армейские двухъярусные койки с матрасами. Ночная смена сможет поспать по очереди.',
     effectText: 'Ночью усталость на смене растёт вдвое медленнее.' },
 };
+UPGRADES.cleaner = { id: 'cleaner', name: 'Уборщица (тётя Валя)', category: 'comfort', price: 150, days: 1, channel: 'commercial', comfort: 1,
+  flags: { cleaner: true },
+  desc: 'Пенсионерка с соседней улицы: моет полы каждый день, гоняет курильщиков и посетителей в грязной обуви. Подённо — 8 тыс. в день из кассы.',
+  effectText: 'Чистота в здании держится сама; хозтовары расходуются экономнее.' };
 export const UPGRADE_LIST = Object.values(UPGRADES);
 
 // Базовые значения флагов (без улучшений)
@@ -291,5 +309,5 @@ export const BASE_FLAGS = {
   windowsBarred: false, frontDoorHp: 150, backDoorHp: 300, gateHp: 200, sandbags: [], dutyArmored: false, cameras: [],
   generatorReliable: false, emergencyLights: false, omonLink: null, backupPhone: false, yardLight: false, yardWire: false,
   armoryAlarm: false, armoryDoorHp: 400, cellDoorHp: 1, medRoom: false, dog: false, rangeTraining: false,
-  roofOk: false, heating: false, coffee: false, tvNew: false, bunks: false, radioRepeater: false, loopholes: false,
+  roofOk: false, heating: false, coffee: false, tvNew: false, bunks: false, radioRepeater: false, loopholes: false, cleaner: false,
 };
