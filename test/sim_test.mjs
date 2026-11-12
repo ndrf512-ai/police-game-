@@ -8,6 +8,7 @@ import { economy } from '../src/sim/economy.js';
 import { detainees } from '../src/sim/detainees.js';
 import { campaign } from '../src/sim/campaign.js';
 import { departments } from '../src/sim/departments.js';
+import { building } from '../src/sim/building.js';
 import { StationAI } from '../src/ai/station.js';
 import { Combat } from '../src/ai/combat.js';
 
@@ -17,7 +18,7 @@ console.error = (...a) => { const k = a.map((x) => (x && x.stack ? x.stack.split
 console.warn = (...a) => { const k = 'WARN ' + a.map((x) => (x && x.message ? x.message + ' @ ' + (x.stack || '').split('\n')[1] : String(x))).join(' ').slice(0, 400); errs.set(k, (errs.get(k) || 0) + 1); };
 globalThis.localStorage = { _d: {}, getItem(k) { return this._d[k] ?? null; }, setItem(k, v) { this._d[k] = String(v); } };
 
-const game = new Game({ sim: { crimes, city, staff, economy, detainees, campaign, departments }, seed });
+const game = new Game({ sim: { crimes, city, staff, economy, detainees, campaign, departments, building }, seed });
 game.StationAI = StationAI; game.combat = new Combat(game);
 const ev = {}; game.bus.on('*', ({ ev: e }) => { ev[e] = (ev[e] || 0) + 1; });
 const attacks = []; game.bus.on('attack:end', (p) => attacks.push({ day: game.state.time.day, t: game.timeStr(), ...p }));
@@ -60,6 +61,8 @@ console.log('Время:', game.timeStr(), '| итог кампании:', S.cam
 console.log('Всего:', JSON.stringify(st));
 console.log('Авторитет', Math.round(S.campaign.authority), 'репутация', Math.round(S.flags.reputation), 'касса', Math.round(S.economy.money));
 console.log('Районы:', S.city.districts.map((d) => `${d.name}: пр.${Math.round(d.crime)} дов.${Math.round(d.trust)} прис.${d.presenceAvg}`).join(' | '));
+console.log('Здание:', S.building ? `чист.${Math.round(S.building.clean)} пор.${Math.round(S.building.order)} обор.${Math.round(S.building.equipment)} запас ${S.building.supplies} | сломано: ${Object.keys(S.building.broken).filter((k) => S.building.broken[k]).join(',') || '—'} | conds: ${S.building.conds.join(',') || '—'} | мораль ${S.building.moraleMod} | ${S.building.lastNote}` : 'нет');
+if (S.building) console.log('  история:', JSON.stringify(S.building.history), 'износ', JSON.stringify(S.building.lastWear));
 console.log('Банды:', S.city.gangs.map((g) => `${g.name}: сила ${Math.round(g.strength)} злость ${Math.round(g.anger)} ${g.status}`).join(' | '));
 console.log('Состав:', Object.entries(S.staff.reduce((m, o) => { m[o.status] = (m[o.status] || 0) + 1; return m; }, {})).map(([k, v]) => `${k}:${v}`).join(' '));
 console.log('Задержанные:', S.detainees.map((d) => `${d.person.lastName}(${d.status})`).join(', ') || '—');

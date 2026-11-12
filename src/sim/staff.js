@@ -412,6 +412,7 @@ export function moraleTarget(game, o) {
   for (const id of Object.keys((e && e.upgrades) || {})) { const u = UPGRADES[id]; if (u) { t += u.comfort || 0; if (winter) t += u.winterComfort || 0; } }
   if (winter && !fl.heating) t -= 4;
   if (!fl.roofOk) t -= 1.5;
+  if (game.state.building) t += +game.state.building.moraleMod || 0; // состояние здания (sim/building.js)
   const ss = supplyStatus(game);
   t += ss.tea ? 2 : -3;
   if (o.smoker) t += ss.smokes ? 2 : -6;

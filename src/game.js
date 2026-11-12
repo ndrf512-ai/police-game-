@@ -79,6 +79,7 @@ export class Game {
     const S = this.sim;
     try { S.campaign?.init?.(this, this.state.mode); } catch (e) { console.error('campaign.init', e); }
     try { S.economy?.init?.(this); } catch (e) { console.error('economy.init', e); }
+    try { S.building?.init?.(this); } catch (e) { console.error('building.init', e); }
     try { S.staff?.init?.(this, 13); } catch (e) { console.error('staff.init', e); }
     try { S.city?.init?.(this); } catch (e) { console.error('city.init', e); }
     try { S.departments?.init?.(this); } catch (e) { console.error('departments.init', e); }
@@ -160,6 +161,7 @@ export class Game {
     if (!s.staff.length && T.staff?.length) { s.staff = T.staff; }
     tmp.state = null;
     if (!s.departments) { try { S.departments?.init?.(this); } catch (e) { console.warn('migrate departments', e); } }
+    try { S.building?.init?.(this); } catch (e) { console.warn('migrate building', e); } // состояние здания (1.1): init дополняет недостающие поля
     // секретарь появилась в 1.1
     if (S.staff?.makeOfficer && !s.staff.some((o) => o.role === 'secretary')) { try { const o = S.staff.makeOfficer(this, new RNG((s.seed ^ 0x9e3779b9) >>> 0), { role: 'secretary', gender: 'f' }); o.status = 'home'; s.staff.push(o); } catch (e) { console.warn('migrate secretary', e); } }
   }
@@ -185,6 +187,7 @@ export class Game {
       try { this.sim.city?.update?.(this, dt); /* dt секунд акторов = dt игровых минут */ } catch (e) { this._err('city', e); }
       try { this.sim.staff?.update?.(this, dt); } catch (e) { this._err('staff', e); }
       try { this.sim.departments?.update?.(this, dt); } catch (e) { this._err('departments', e); }
+      try { this.sim.building?.update?.(this, dt); } catch (e) { this._err('building', e); }
       if ((this._ecoT = (this._ecoT || 0) + dt) > 10) { this._ecoT = 0; try { this.sim.economy?.tick?.(this); } catch (e) { this._err('economy', e); } }
       if ((this._endChk = (this._endChk || 0) + dt) > 2) { this._endChk = 0; try { this.sim.campaign?.checkEnd?.(this); } catch (e) { this._err('campaign', e); } }
     }
@@ -206,11 +209,13 @@ export class Game {
     try { S.city?.dayEnd?.(this); } catch (e) { console.error(e); }
     const summary = (() => { try { return S.city?.daySummary?.(this); } catch (e) { return null; } })();
     try { S.staff?.dayEnd?.(this); } catch (e) { console.error(e); }
+    try { S.building?.dayEnd?.(this); } catch (e) { console.error(e); }
     this.bus.emit('day:end', { day: day - 1, summary });
     try { S.economy?.dayStart?.(this); } catch (e) { console.error(e); }
     try { S.staff?.dayStart?.(this); } catch (e) { console.error(e); }
     try { S.detainees?.dayStart?.(this); } catch (e) { console.error(e); }
     try { S.departments?.dayStart?.(this); } catch (e) { console.error(e); }
+    try { S.building?.dayStart?.(this); } catch (e) { console.error(e); }
     try { S.campaign?.update?.(this); } catch (e) { console.error(e); }
     this.bus.emit('day:start', { day });
     this.save(true);

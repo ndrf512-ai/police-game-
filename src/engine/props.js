@@ -94,6 +94,107 @@ export function buildProp(geo, p, A, out) {
     case 'dumpster': B(0, 0.6, 0, 1.15, 0.6, 0.75, all('dumpster'), 1, 1, 0.92); break;
     case 'wrecked_car': B(0, 0.5, 0, 0.85, 0.3, 1.9, all('rust')); B(0, 1.0, -0.2, 0.8, 0.25, 1.0, { side: ['uaz_window'], top: ['rust'], front: ['uaz_window'], back: ['rust'] }); B(-0.8, 0.25, 1.2, 0.12, 0.25, 0.3, all('tire')); break;
     case 'fuel_tank': B(0, 0.9, 0, 0.95, 0.65, 0.65, { side: ['tank'], front: ['tank'], top: ['metal'] }); for (const sx of [-1, 1]) B(sx * 0.7, 0.13, 0, 0.06, 0.13, 0.5, all('metal_dark')); break;
+    default: buildDecor(geo, p, A, out, xf, B, light); break;
+  }
+}
+
+// Пропы, которые рисуются с alpha-test (лужи, пятна) — в отдельный меш «условных» предметов
+export const ALPHA_PROPS = new Set(['puddle', 'dirt_stain']);
+
+/** Обстановка v1.1: здание, двор, улица. Локально: +Z — «лицо» предмета; настенные — задом к стене (z=0). */
+function buildDecor(geo, p, A, out, xf, B, light) {
+  const sub = (dx, dy, dz, rx = 0, ry = 0, rz = 0) => new Xf().set(xf).mulLocal(dx, dy, dz, rx, ry, rz);
+  const Bx = (X, cx, cy, cz, hx, hy, hz, faces, alpha = 1, tt = 1, tb = 1) => box(geo, X, cx, cy, cz, hx, hy, hz, faces, A, alpha, tt, tb);
+  const w = p.w || 0.5;
+  switch (p.type) {
+    case 'radiator': // чугунная батарея у пола; w — полудлина
+      B(0, 0.43, 0.075, w, 0.27, 0.05, { front: ['radiator'], back: ['radiator'], side: ['radiator'], top: ['radiator'] });
+      for (const sx of [-1, 1]) B(sx * (w + 0.04), sx < 0 ? 0.62 : 0.2, 0.06, 0.016, 0.05, 0.016, all('metal', [0.75, 0.73, 0.66]));
+      B(-w - 0.08, 1.0, 0.045, 0.016, 1.0, 0.016, all('metal', [0.75, 0.73, 0.66])); break;
+    case 'wall_clock': B(0, 0, 0.025, 0.16, 0.16, 0.025, { front: ['clock'], side: ['black'], top: ['black'], bottom: ['black'] }); break;
+    case 'locker': B(0, 0.95, 0, 0.45, 0.95, 0.25, { front: ['locker'], side: ['metal', [0.62, 0.74, 0.64]], top: ['metal', [0.55, 0.65, 0.57]], back: ['metal', [0.55, 0.65, 0.57]] }); B(0, 0.02, 0.02, 0.44, 0.02, 0.24, all('metal_dark')); break;
+    case 'fire_shield':
+      B(0, 0, 0.015, 0.6, 0.5, 0.015, { front: ['fire_shield'], side: ['red'], top: ['red'], bottom: ['red'] });
+      B(0.4, -0.18, 0.12, 0.1, 0.13, 0.09, all('red'), 1, 1, 0.25); // конусное ведро
+      B(0.4, -0.04, 0.12, 0.1, 0.005, 0.09, { top: ['black'] }); break;
+    case 'poster': {
+      const v = p.v || 'agit';
+      const [hw, hh] = { honor: [0.8, 0.55], rules: [0.34, 0.47], agit: [0.33, 0.46], ad: [0.3, 0.4] }[v] || [0.33, 0.46];
+      if (v === 'honor') { B(0, 0, 0.02, hw + 0.05, hh + 0.05, 0.02, all('wood_dark')); B(0, 0, 0.043, hw, hh, 0.003, { front: ['poster_honor'] }); }
+      else B(0, 0, 0.005, hw, hh, 0.004, { front: ['poster_' + v], side: ['paper'] });
+      break; }
+    case 'bucket_mop':
+      B(0, 0.15, 0, 0.14, 0.15, 0.14, all('metal', [0.72, 0.76, 0.82]), 1, 1, 0.8);
+      B(0, 0.27, 0, 0.12, 0.004, 0.12, { top: ['blue_water', [0.55, 0.55, 0.5]] });
+      { const m = sub(0.1, 0, -0.12, -0.22, 0, 0.18); Bx(m, 0, 0.7, 0, 0.012, 0.66, 0.012, all('wood')); Bx(m, 0, 0.04, 0, 0.13, 0.03, 0.05, all('fabric', [0.55, 0.55, 0.5])); }
+      break;
+    case 'ashtray':
+      B(0, 0.012, 0, 0.055, 0.012, 0.055, all('metal', [0.85, 0.85, 0.8]), 1, 1, 0.8);
+      B(0.012, 0.027, 0.01, 0.024, 0.004, 0.006, all('paper')); B(-0.015, 0.027, -0.01, 0.006, 0.004, 0.022, all('paper')); break;
+    case 'trash_pile':
+      B(0, 0.17, 0, 0.22, 0.17, 0.2, all('trash_bag'), 1, 0.55, 1);
+      B(0.32, 0.12, 0.14, 0.17, 0.12, 0.15, all('trash_bag', [0.8, 0.95, 0.85]), 1, 0.55, 1);
+      B(-0.28, 0.005, 0.22, 0.13, 0.004, 0.09, { top: ['paper'], side: ['paper'] }); B(0.08, 0.005, 0.38, 0.1, 0.004, 0.13, { top: ['paper'], side: ['paper'] });
+      { const b = sub(-0.25, 0.04, -0.12, 0, 0.6, Math.PI / 2); Bx(b, 0, 0, 0, 0.035, 0.12, 0.035, all('bottle')); }
+      B(0.2, 0.04, -0.25, 0.08, 0.04, 0.06, all('paper', [0.75, 0.6, 0.45])); break;
+    case 'dirt_stain': { const s = p.s || 0.5;
+      if (p.wall) B(0, 0, 0.004, s, s * 0.9, 0.002, { front: ['stain_wall'] });
+      else B(0, 0.007, 0, s, 0.002, s * 0.85, { top: ['stain'] });
+      break; }
+    case 'puddle': { const s = p.s || 0.7; B(0, 0.009, 0, s, 0.002, s * 0.75, { top: ['puddle'] }); break; }
+    case 'phone_booth':
+      B(0, 1.1, 0, 0.45, 1.1, 0.45, { front: ['booth'], side: ['booth'], back: ['booth'], top: ['metal_dark'] });
+      B(0, 2.24, 0, 0.5, 0.04, 0.5, all('red')); B(0, 0.01, 0, 0.47, 0.01, 0.47, all('metal_dark')); break;
+    case 'tree': {
+      B(0, 1.5, 0, 0.14, 1.5, 0.14, all('bark'), 1, 0.55, 1.1);
+      const lim = [[0.7, 0], [0.55, 1.9], [0.8, 3.6], [0.5, 5.0], [0.65, 2.7]];
+      lim.forEach(([rx, ry], k) => {
+        const L = sub(0, 1.5 + k * 0.35, 0, rx, ry, 0); Bx(L, 0, 0.75, 0, 0.045, 0.75, 0.045, all('bark'), 1, 0.4, 1);
+        const T = new Xf().set(L).mulLocal(0, 1.3, 0, -0.6, 0.8, 0); Bx(T, 0, 0.4, 0, 0.02, 0.4, 0.02, all('bark'), 1, 0.3, 1);
+        if (k % 2 === 0) Bx(L, 0.05, 1.45, 0, 0.12, 0.08, 0.1, all('leaves'));
+      });
+      B(0, 3.2, 0, 0.05, 0.4, 0.05, all('bark'), 1, 0.3, 1); break; }
+    case 'fence': { // палисадник из металлических прутьев; w — полудлина
+      const c = all('metal', [0.32, 0.46, 0.34]);
+      B(0, 0.86, 0, w, 0.02, 0.02, c); B(0, 0.18, 0, w, 0.02, 0.02, c);
+      for (let x = -w + 0.08; x < w; x += 0.16) B(x, 0.5, 0, 0.009, 0.48, 0.009, c);
+      for (let x = -w; x <= w + 0.01; x += Math.max(0.5, (2 * w) / Math.max(1, Math.round(w)))) B(x, 0.48, 0, 0.03, 0.48, 0.03, c);
+      break; }
+    case 'lamp_wall':
+      B(0, 0, 0.05, 0.05, 0.05, 0.05, all('metal_dark')); B(0, -0.02, 0.17, 0.1, 0.06, 0.1, { bottom: ['glow'], side: ['metal', [0.7, 0.75, 0.7]], top: ['metal', [0.7, 0.75, 0.7]], front: ['metal', [0.7, 0.75, 0.7]] }, 1, 0.6, 1);
+      light(0, -0.25, 0.4, [1.0, 0.82, 0.55], p.radius || 4.5, { kind: 'wall', power: true, outdoor: !!p.outdoor }); break;
+    case 'curtains': // y — центр окна; w — полуширина проёма
+      B(0, 0.72, 0.09, w + 0.32, 0.012, 0.012, all('metal_dark'));
+      for (const sx of [-1, 1]) B(sx * (w + 0.12), -0.02, 0.08, 0.2, 0.7, 0.025, all('curtain'));
+      break;
+    case 'cabinet_small': B(0, 0.42, 0, 0.42, 0.42, 0.22, { front: ['drawers'], side: ['wood'], top: ['wood_dark'], back: ['wood'] }); break;
+    case 'bench_street':
+      for (const sx of [-1, 1]) B(sx * 0.75, 0.22, 0, 0.06, 0.22, 0.2, all('concrete_p'));
+      for (let k = -1; k <= 1; k++) B(0, 0.46, k * 0.13, 0.95, 0.025, 0.055, all('wood', [0.8, 0.75, 0.7]));
+      B(0, 0.72, -0.22, 0.95, 0.05, 0.02, all('wood', [0.8, 0.75, 0.7])); B(0, 0.86, -0.22, 0.95, 0.05, 0.02, all('wood', [0.8, 0.75, 0.7]));
+      for (const sx of [-1, 1]) B(sx * 0.75, 0.66, -0.22, 0.04, 0.22, 0.03, all('concrete_p'));
+      break;
+    case 'trash_can': B(0, 0.36, 0, 0.21, 0.36, 0.21, all('urn'), 1, 1.12, 0.85); B(0, 0.722, 0, 0.19, 0.002, 0.19, { top: ['black'] }); break;
+    case 'carpet': { // l — полудлина вдоль local z, w — полуширина; режем на сегменты (аффинные текстуры)
+      const L = p.l || 1, n = Math.max(1, Math.round(L)); const hs = L / n; const tex = p.mat ? 'mat' : 'carpet';
+      for (let k = 0; k < n; k++) B(0, 0.006, -L + hs * (2 * k + 1), w, 0.004, hs, { top: [tex], side: [tex] });
+      break; }
+    case 'radio_old': B(0, 0.12, 0, 0.2, 0.12, 0.1, { front: ['radio_old'], side: ['wood_dark'], top: ['wood'], back: ['wood_dark'] }); B(0.14, 0.32, -0.06, 0.004, 0.1, 0.004, all('metal')); break;
+    case 'heater':
+      B(0, 0.36, 0, 0.24, 0.29, 0.09, { front: ['heater'], back: ['heater'], side: ['heater'], top: ['porcelain'] });
+      for (const sx of [-1, 1]) B(sx * 0.18, 0.04, 0, 0.02, 0.04, 0.16, all('metal_dark'));
+      light(0, 0.3, 0.25, [1.0, 0.35, 0.2], 0.7, { kind: 'indicator', power: true }); break;
+    case 'map_wall': B(0, 0, 0.008, 0.6, 0.42, 0.008, { front: ['map_district'], side: ['wood_dark'], top: ['wood_dark'], bottom: ['wood_dark'] }); break;
+    case 'sign_room': B(0, 0, 0.008, 0.24, 0.065, 0.006, { front: ['sign_' + p.room], side: ['black'], top: ['black'], bottom: ['black'] }); break;
+    case 'pc':
+      B(0, 0.05, -0.05, 0.22, 0.05, 0.2, { front: ['monitor_body'], side: ['monitor_body'], top: ['monitor_body'] });
+      B(0, 0.27, -0.06, 0.18, 0.17, 0.16, { front: ['pc_front'], side: ['monitor_body'], top: ['monitor_body'], back: ['monitor_body'] }, 1, 0.85, 1);
+      B(0, 0.012, 0.25, 0.2, 0.012, 0.07, { top: ['keyboard'], side: ['monitor_body'], front: ['monitor_body'] });
+      light(0, 0.3, 0.3, [0.4, 0.9, 0.5], 0.9, { kind: 'monitor', power: true }); break;
+    case 'container':
+      B(0, 1.25, 0, 2.4, 1.25, 1.1, { side: ['container'], front: ['container'], back: ['container'], top: ['rust'] });
+      for (const sx of [-1, 1]) B(sx * 2.42, 1.25, 0.6, 0.02, 1.2, 0.03, all('metal_dark'));
+      break;
     default: break;
   }
 }

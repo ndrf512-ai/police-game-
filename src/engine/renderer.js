@@ -4,7 +4,7 @@ import { WORLD_VS, WORLD_FS, SCREEN_FS, POST_VS, POST_FS, NL } from './shaders.j
 import { mat4, Xf } from './math.js';
 import { genSurfaces, genPropAtlas, makeCanvas } from './textures.js';
 import { genCharAtlas, buildCharacter, box, SKIN } from './characters.js';
-import { buildLevel, buildPropsMesh, zoneIndex, ZONE_IDS, boxW } from './levelmesh.js';
+import { buildLevel, buildPropsMesh, buildCondMesh, zoneIndex, ZONE_IDS, boxW } from './levelmesh.js';
 import { CELLS, ROOMS, DOORS, POINTS } from '../world/level.js';
 import { RNG } from '../core/rng.js';
 
@@ -31,6 +31,8 @@ export class Renderer {
     this.glassMesh = new Mesh(gl, L.glass.data); this.barsMesh = new Mesh(gl, L.bars.data);
     const P = buildPropsMesh(world, this.propAtlas, L);
     this.propsMesh = new Mesh(gl, P.geo.data);
+    // «условные» предметы (грязь/мусор/протечки по состоянию здания) и лужи/пятна с alpha-test — отдельный меш, перестраивается по 'building:changed'
+    this.condGeo = new GeoBuilder(2048); this.condMesh = new Mesh(gl, null, true); this.rebuildCond(game?.state?.building?.conds);
     this.lights = [...L.lights, ...P.lights].map((l) => ({ ...l, mask: (l.zones || [10]).reduce((m, z) => m | (1 << z), 0), phase: this.rng.range(0, 100) }));
     // уличные фонари светят на всю улицу и немного на фасад
     for (const l of this.lights) if (l.outdoor) l.mask |= OUTDOOR_MASK;
@@ -73,6 +75,9 @@ export class Renderer {
     const h = Math.round(this.settings.height * this.settings.scale); const w = Math.round(h * cw / ch);
     if (this.target.w !== w || this.target.h !== h) { this.target.resize(w, h); this.mirrorTarget.resize(w, h); }
   }
+
+  /** Перестроить меш условных предметов (conds — state.building.conds). Дёшево: ~100 коробок, раз в сутки. */
+  rebuildCond(conds) { try { buildCondMesh(this.world, this.propAtlas, conds || [], this.condGeo); this.condMesh.upload(this.condGeo.data); } catch (e) { console.error('cond props', e); } }
 
   // ——— эффекты из боя ———
   addDecal(kind, x, y, z, nx = 0, ny = 1, nz = 0, size = 0.1) { this.decals.push({ kind, x, y, z, nx, ny, nz, size, t: 0 }); if (this.decals.length > 120) this.decals.shift(); }
@@ -141,7 +146,7 @@ export class Renderer {
     this._bindTex(this.tex.chars);
     (opts.mirror ? this.mirrorCharMesh : this.dynMesh).draw();
     // решётки
-    gl.uniform1f(p.u.uAlphaTest, 0.5); this._bindTex(this.tex.bars); this.barsMesh.draw(); this.dynBarsMesh.draw(); gl.uniform1f(p.u.uAlphaTest, 0.0);
+    gl.uniform1f(p.u.uAlphaTest, 0.5); this._bindTex(this.tex.props); this.condMesh.draw(); this._bindTex(this.tex.bars); this.barsMesh.draw(); this.dynBarsMesh.draw(); gl.uniform1f(p.u.uAlphaTest, 0.0);
     // экраны
     if (!opts.cctv) this._drawScreens(cam, state, view, proj, lights, opts);
     // прозрачное: стекло, дождь, эффекты

@@ -180,6 +180,8 @@ export function spawnCrime(game, d, now, opts = {}) {
     return null;
   }
   const source = cr.inProgress ? 'dispatch' : rng.chance(0.3) ? 'call' : rng.chance(0.3) ? 'visitor' : 'report';
+  // сломанный телефон дежурки (sim/building.js): звонок не дошёл — преступление остаётся латентным
+  if (source === 'call' && dep(game, 'building', 'phoneLost') && game.sim.building.phoneLost(game, rng)) { bump(game, 'latent', 1, d.id); d.dayAcc.latent = num(d.dayAcc.latent) + 1; trust(game, d.id, -0.3); return null; }
   registerCrime(game, cr, source);
   if (cr.inProgress) handleLive(game, cr, now);
   else afterReport(game, cr, source, now);

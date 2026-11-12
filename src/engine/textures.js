@@ -1,5 +1,6 @@
 // Процедурные текстуры в духе PS1: маленькие, с шумом, без фильтрации.
 import { RNG } from '../core/rng.js';
+import { ROOMS } from '../world/level.js';
 
 export function makeCanvas(w, h) {
   if (typeof OffscreenCanvas !== 'undefined') { try { const c = new OffscreenCanvas(w, h); c.getContext('2d'); return c; } catch (e) { /* fallthrough */ } }
@@ -262,5 +263,56 @@ export function genPropAtlas() {
   A.add('mirror_frame', 8, 8, (x) => { x.fillStyle = rgb(170, 170, 160); x.fillRect(0, 0, 8, 8); });
   A.add('chess', 16, 16, (x) => { for (let j = 0; j < 8; j++) for (let i = 0; i < 8; i++) { x.fillStyle = (i + j) % 2 ? '#3a2a1a' : '#d8c8a0'; x.fillRect(i * 2, j * 2, 2, 2); } });
   A.add('tank', 32, 16, (x, w, h) => { fillNoise(x, w, h, rng, rgb(150, 150, 140), 10); x.fillStyle = '#c22'; x.font = '5px monospace'; x.fillText('ОГНЕОПАСНО', 1, 10); });
+  genBuildingTextures(A, rng);
   return A;
+}
+
+/** Текстуры предметов обстановки (v1.1: здание, двор, улица) */
+function genBuildingTextures(A, rng) {
+  const txtFit = (x, s, cx, y, maxW, px, bold = true) => { let f = px; do { x.font = `${bold ? 'bold ' : ''}${f}px monospace`; f -= 0.5; } while (f > 3 && x.measureText(s).width > maxW); x.textAlign = 'center'; x.fillText(s, cx, y); x.textAlign = 'left'; };
+  // чугунная батарея: вертикальные рёбра секций
+  A.add('radiator', 32, 16, (x, w, h) => { fillNoise(x, w, h, rng, rgb(196, 190, 172), 6); for (let i = 0; i < w; i += 3) { x.fillStyle = 'rgba(60,55,45,0.55)'; x.fillRect(i, 1, 1, h - 2); } x.fillStyle = 'rgba(120,80,40,0.35)'; x.fillRect(0, h - 3, w, 3); blotches(x, w, h, rng, 2, 'rgba(110,70,30,0.4)', 1, 3); });
+  // часы «Янтарь»: белый циферблат в чёрном ободе
+  A.add('clock', 32, 32, (x) => { x.fillStyle = '#1a1a1a'; x.fillRect(0, 0, 32, 32); x.fillStyle = '#e8e4d6'; x.beginPath(); x.arc(16, 16, 14, 0, 7); x.fill(); x.fillStyle = '#222'; for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2; x.fillRect(16 + Math.sin(a) * 12 - 0.5, 16 - Math.cos(a) * 12 - 0.5, k % 3 ? 1 : 2, k % 3 ? 1 : 2); } x.strokeStyle = '#111'; x.lineWidth = 2; x.beginPath(); x.moveTo(16, 16); x.lineTo(21, 12); x.stroke(); x.lineWidth = 1; x.beginPath(); x.moveTo(16, 16); x.lineTo(15, 5); x.stroke(); x.strokeStyle = '#b22'; x.beginPath(); x.moveTo(16, 16); x.lineTo(9, 23); x.stroke(); x.fillStyle = '#555'; x.font = '4px monospace'; x.fillText('ЯНТАРЬ', 9, 24); });
+  // металлический шкаф для одежды/документов, серо-зелёный, две дверцы
+  A.add('locker', 32, 32, (x, w, h) => { fillNoise(x, w, h, rng, rgb(110, 128, 112), 7); x.fillStyle = 'rgba(30,35,30,0.7)'; x.fillRect(15, 0, 2, h); x.fillRect(0, 0, w, 1); for (const dx of [3, 19]) for (let j = 3; j < 9; j += 2) x.fillRect(dx, j, 10, 1); x.fillStyle = rgb(170, 170, 160); x.fillRect(12, 15, 2, 4); x.fillRect(18, 15, 2, 4); x.fillStyle = '#ddd'; x.fillRect(5, 22, 6, 3); x.fillRect(21, 22, 6, 3); blotches(x, w, h, rng, 2, 'rgba(110,70,30,0.4)', 1, 3); });
+  // пожарный щит
+  A.add('fire_shield', 48, 40, (x, w, h) => { fillNoise(x, w, h, rng, rgb(170, 34, 30), 10); x.strokeStyle = '#eee'; x.strokeRect(1.5, 1.5, w - 3, h - 3); x.fillStyle = '#eee'; txtFit(x, 'ПОЖАРНЫЙ ЩИТ', 24, 8, 42, 6);
+    x.fillStyle = '#333'; x.fillRect(6, 12, 2, 22); x.fillStyle = '#999'; x.fillRect(3, 12, 8, 5); // топор
+    x.fillStyle = '#222'; x.fillRect(16, 11, 2, 24); x.fillRect(16, 11, 5, 2); // багор
+    x.fillStyle = '#333'; x.fillRect(25, 12, 2, 22); x.fillStyle = '#888'; x.fillRect(23, 30, 6, 4); // лопата
+    x.fillStyle = '#222'; x.fillRect(33, 12, 1, 22); x.fillRect(31, 12, 4, 1); /* лом */ });
+  // плакаты
+  A.add('poster_honor', 64, 44, (x, w, h) => { x.fillStyle = rgb(120, 24, 24); x.fillRect(0, 0, w, h); x.fillStyle = rgb(210, 170, 60); txtFit(x, 'ДОСКА ПОЧЁТА', 32, 8, 58, 7); x.fillRect(4, 10, w - 8, 1);
+    for (let j = 0; j < 2; j++) for (let i = 0; i < 5; i++) { const px = 4 + i * 12, py = 13 + j * 15; x.fillStyle = rgb(225, 220, 205); x.fillRect(px, py, 10, 13); x.fillStyle = rgb(90 + rng.int(-15, 15), 80, 70); x.fillRect(px + 2, py + 1, 6, 7); x.fillStyle = rgb(170, 140, 110); x.fillRect(px + 3, py + 2, 4, 4); x.fillStyle = '#333'; x.fillRect(px + 1, py + 10, 8, 1); } });
+  A.add('poster_rules', 32, 44, (x, w, h) => { fillNoise(x, w, h, rng, rgb(222, 216, 196), 5); x.fillStyle = '#222'; txtFit(x, 'ПРАВИЛА', 16, 7, 28, 6); txtFit(x, 'внутреннего распорядка', 16, 12, 30, 4, false); x.fillStyle = '#444'; for (let j = 16; j < 41; j += 3) x.fillRect(3, j, rng.int(18, 26), 1); x.fillStyle = 'rgba(60,40,140,0.6)'; x.beginPath(); x.arc(24, 38, 3, 0, 7); x.fill(); blotches(x, w, h, rng, 1, 'rgba(150,120,60,0.3)', 3, 6); });
+  A.add('poster_agit', 32, 44, (x, w, h) => { x.fillStyle = rgb(200, 190, 160); x.fillRect(0, 0, w, h); x.fillStyle = rgb(170, 30, 30); x.fillRect(0, 0, w, 14); x.fillStyle = '#f0e0a0'; txtFit(x, 'МИЛИЦИЯ', 16, 7, 28, 6); txtFit(x, 'НА СТРАЖЕ', 16, 12, 28, 4); x.fillStyle = rgb(40, 60, 110); x.fillRect(10, 18, 12, 14); x.fillRect(12, 32, 3, 8); x.fillRect(17, 32, 3, 8); x.fillStyle = rgb(210, 170, 130); x.fillRect(13, 14, 6, 5); x.fillStyle = rgb(40, 60, 110); x.fillRect(11, 13, 10, 2); x.fillStyle = '#b22'; x.fillRect(11, 14, 10, 1); x.fillStyle = '#222'; txtFit(x, 'ПОРЯДКА', 16, 43, 28, 4); });
+  A.add('poster_ad', 32, 44, (x, w, h) => { x.fillStyle = rgb(240, 240, 235); x.fillRect(0, 0, w, h); x.fillStyle = rgb(30, 50, 140); x.fillRect(0, 0, w, 12); x.fillStyle = '#fff'; txtFit(x, 'ГОЛОСУЙ', 16, 9, 28, 6); x.fillStyle = '#c22'; txtFit(x, 'ИЛИ', 16, 20, 28, 5); txtFit(x, 'ПРОИГРАЕШЬ', 16, 27, 30, 5); x.fillStyle = rgb(30, 50, 140); x.fillRect(0, 34, w, 2); x.fillStyle = '#c22'; x.fillRect(0, 37, w, 2); x.fillStyle = 'rgba(80,80,80,0.5)'; x.fillRect(rng.int(2, 20), rng.int(14, 30), 8, 5); /* оборван */ blotches(x, w, h, rng, 2, 'rgba(90,80,60,0.35)', 3, 7); });
+  // мусор: чёрные мешки, бутылка
+  A.add('trash_bag', 16, 16, (x, w, h) => { fillNoise(x, w, h, rng, rgb(32, 36, 34), 10); x.fillStyle = 'rgba(160,170,170,0.35)'; x.fillRect(3, 3, 2, 6); x.fillRect(9, 2, 1, 5); });
+  A.add('bottle', 8, 8, (x, w, h) => { fillNoise(x, w, h, rng, rgb(40, 90, 50), 10); x.fillStyle = 'rgba(200,230,200,0.5)'; x.fillRect(1, 1, 1, 6); });
+  // пятна и лужи — с прозрачным фоном (рисуются с alpha-test)
+  const blob = (x, w, h, col, n, rmin, rmax) => { x.clearRect(0, 0, w, h); x.fillStyle = col; for (let k = 0; k < n; k++) { x.beginPath(); x.ellipse(w / 2 + rng.range(-w / 5, w / 5), h / 2 + rng.range(-h / 5, h / 5), rng.range(rmin, rmax), rng.range(rmin, rmax) * 0.8, rng.range(0, 3), 0, 7); x.fill(); } };
+  A.add('stain', 32, 32, (x, w, h) => { blob(x, w, h, 'rgba(58,44,28,1)', 6, 4, 10); x.fillStyle = 'rgba(30,22,14,1)'; for (let k = 0; k < 8; k++) x.fillRect(rng.int(8, 24), rng.int(8, 24), 2, 1); });
+  A.add('stain_wall', 32, 32, (x, w, h) => { x.clearRect(0, 0, w, h); x.fillStyle = 'rgba(96,82,52,1)'; x.beginPath(); x.ellipse(16, 9, 12, 7, 0, 0, 7); x.fill(); for (let k = 0; k < 6; k++) { const px = rng.int(6, 26); x.fillRect(px, 9, 2, rng.int(10, 22)); } x.fillStyle = 'rgba(70,58,36,1)'; x.beginPath(); x.ellipse(16, 8, 7, 4, 0, 0, 7); x.fill(); });
+  A.add('puddle', 32, 32, (x, w, h) => { blob(x, w, h, 'rgba(46,54,62,1)', 5, 6, 12); x.fillStyle = 'rgba(120,135,150,1)'; for (let k = 0; k < 5; k++) x.fillRect(rng.int(10, 22), rng.int(10, 22), rng.int(2, 5), 1); });
+  // телефонная будка: стекло в красной раме, надпись «ТЕЛЕФОН»
+  A.add('booth', 32, 64, (x, w, h) => { fillNoise(x, w, h, rng, rgb(150, 40, 34), 8); x.fillStyle = rgb(40, 50, 58); for (let j = 0; j < 3; j++) x.fillRect(3, 10 + j * 15, 26, 13); x.fillStyle = 'rgba(170,190,210,0.35)'; x.fillRect(5, 12, 2, 36); x.fillStyle = '#eee'; txtFit(x, 'ТЕЛЕФОН', 16, 7, 28, 5); x.fillStyle = 'rgba(30,30,30,0.6)'; x.fillRect(rng.int(4, 20), 30, 6, 4); /* граффити */ });
+  A.add('bark', 16, 16, (x, w, h) => { fillNoise(x, w, h, rng, rgb(58, 52, 46), 16); x.fillStyle = 'rgba(25,22,20,0.6)'; for (let i = 1; i < w; i += 4) x.fillRect(i, 0, 1, h); });
+  A.add('leaves', 16, 16, (x, w, h) => { fillNoise(x, w, h, rng, rgb(150, 110, 40), 30); for (let k = 0; k < 10; k++) { x.fillStyle = rng.pick(['#8a4a1a', '#a07020', '#5a4a2a']); x.fillRect(rng.int(0, 15), rng.int(0, 15), 2, 2); } });
+  A.add('curtain', 16, 32, (x, w, h) => { fillNoise(x, w, h, rng, rgb(150, 110, 70), 8); for (let i = 0; i < w; i += 4) { x.fillStyle = 'rgba(60,40,20,0.35)'; x.fillRect(i, 0, 1, h); x.fillStyle = 'rgba(230,200,150,0.25)'; x.fillRect(i + 2, 0, 1, h); } x.fillStyle = 'rgba(90,60,30,0.4)'; for (let j = 4; j < h; j += 8) x.fillRect(0, j, w, 1); });
+  // ковровая дорожка: красная, с зелёной каймой (u — поперёк, v — вдоль)
+  A.add('carpet', 32, 16, (x, w, h) => { fillNoise(x, w, h, rng, rgb(130, 34, 34), 8); x.fillStyle = rgb(40, 80, 50); x.fillRect(0, 0, 3, h); x.fillRect(w - 3, 0, 3, h); x.fillStyle = rgb(190, 160, 90); x.fillRect(4, 0, 1, h); x.fillRect(w - 5, 0, 1, h); x.fillStyle = 'rgba(70,20,20,0.6)'; for (let j = 2; j < h; j += 8) { x.fillRect(12, j, 8, 1); x.fillRect(14, j + 2, 4, 1); } blotches(x, w, h, rng, 2, 'rgba(60,40,30,0.35)', 2, 5); });
+  A.add('mat', 16, 16, (x, w, h) => { fillNoise(x, w, h, rng, rgb(36, 36, 36), 8); x.fillStyle = 'rgba(80,80,80,0.6)'; for (let j = 1; j < h; j += 3) x.fillRect(1, j, w - 2, 1); });
+  A.add('radio_old', 32, 16, (x, w, h) => { fillNoise(x, w, h, rng, rgb(92, 60, 36), 6); x.fillStyle = rgb(200, 190, 150); x.fillRect(2, 2, 18, 6); x.fillStyle = '#222'; for (let i = 3; i < 19; i += 3) x.fillRect(i, 3, 1, 4); x.fillStyle = '#c33'; x.fillRect(9, 2, 1, 6); x.fillStyle = rgb(60, 50, 40); for (let j = 9; j < 15; j += 2) x.fillRect(2, j, 18, 1); x.fillStyle = '#ccc'; x.beginPath(); x.arc(25, 6, 3, 0, 7); x.fill(); x.beginPath(); x.arc(25, 12, 2, 0, 7); x.fill(); });
+  A.add('heater', 16, 16, (x, w, h) => { fillNoise(x, w, h, rng, rgb(214, 208, 190), 5); for (let i = 1; i < w; i += 3) { x.fillStyle = 'rgba(80,75,60,0.5)'; x.fillRect(i, 0, 1, h); } });
+  A.add('map_district', 48, 32, (x, w, h) => { fillNoise(x, w, h, rng, rgb(214, 206, 180), 5); x.strokeStyle = 'rgba(90,85,75,0.45)'; for (let k = 0; k < 4; k++) { x.beginPath(); x.moveTo(rng.int(0, w), 0); x.lineTo(rng.int(0, w), h); x.stroke(); x.beginPath(); x.moveTo(0, rng.int(0, h)); x.lineTo(w, rng.int(0, h)); x.stroke(); } x.fillStyle = 'rgba(80,120,160,0.6)'; x.fillRect(0, 22, w, 3); for (let k = 0; k < 7; k++) { x.fillStyle = rng.pick(['#c22', '#22c', '#c22']); x.fillRect(rng.int(2, w - 3), rng.int(2, h - 3), 2, 2); } x.fillStyle = '#222'; x.font = 'bold 4px monospace'; x.fillText('УЧАСТОК №14', 2, 5); });
+  A.add('drawers', 16, 16, (x, w, h) => { fillNoise(x, w, h, rng, rgb(118, 80, 48), 7); x.fillStyle = 'rgba(40,24,12,0.7)'; for (let j = 5; j < h; j += 5) x.fillRect(0, j, w, 1); x.fillStyle = rgb(180, 170, 140); for (let j = 2; j < h; j += 5) x.fillRect(7, j, 3, 1); });
+  A.add('urn', 16, 16, (x, w, h) => { fillNoise(x, w, h, rng, rgb(140, 138, 130), 14); x.fillStyle = 'rgba(60,60,60,0.5)'; x.fillRect(0, 3, w, 1); x.fillRect(0, 12, w, 1); });
+  A.add('concrete_p', 16, 16, (x, w, h) => { fillNoise(x, w, h, rng, rgb(150, 148, 140), 14); blotches(x, w, h, rng, 2, 'rgba(70,70,65,0.4)', 2, 5); });
+  A.add('pc_front', 32, 32, (x, w, h) => { fillNoise(x, w, h, rng, rgb(186, 180, 162), 5); x.fillStyle = '#101810'; x.fillRect(4, 3, 24, 19); x.fillStyle = rgb(80, 200, 100); x.fillRect(6, 5, 12, 1); for (let j = 8; j < 20; j += 3) x.fillRect(6, j, rng.int(6, 18), 1); x.fillRect(6, 20, 2, 1); x.fillStyle = '#333'; x.fillRect(22, 26, 5, 2); x.fillStyle = '#3c3'; x.fillRect(5, 27, 1, 1); });
+  A.add('keyboard', 32, 8, (x, w, h) => { fillNoise(x, w, h, rng, rgb(170, 165, 150), 5); x.fillStyle = 'rgba(60,60,55,0.6)'; for (let j = 1; j < h; j += 2) for (let i = 1; i < w - 1; i += 2) x.fillRect(i, j, 1, 1); });
+  A.add('container', 32, 16, (x, w, h) => { fillNoise(x, w, h, rng, rgb(54, 84, 120), 10); for (let i = 0; i < w; i += 2) { x.fillStyle = 'rgba(20,30,40,0.35)'; x.fillRect(i, 0, 1, h); } blotches(x, w, h, rng, 5, 'rgba(120,64,30,0.6)', 1, 4); x.fillStyle = '#ddd'; x.font = '4px monospace'; x.fillText('MSKU', 2, 5); });
+  // таблички на дверях — названия комнат из ROOMS
+  for (const r of ROOMS) A.add('sign_' + r.id, 96, 24, (x, w, h) => { x.fillStyle = rgb(28, 40, 86); x.fillRect(0, 0, w, h); x.strokeStyle = rgb(200, 180, 110); x.strokeRect(1.5, 1.5, w - 3, h - 3); x.fillStyle = rgb(230, 215, 150); const nm = r.name.toUpperCase(); const sp = nm.length > 14 ? nm.lastIndexOf(' ') : -1; if (sp > 0) { txtFit(x, nm.slice(0, sp), w / 2, 11, w - 8, 9); txtFit(x, nm.slice(sp + 1), w / 2, 20, w - 8, 9); } else txtFit(x, nm, w / 2, 16, w - 8, 10); });
 }

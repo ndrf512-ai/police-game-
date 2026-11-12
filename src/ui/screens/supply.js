@@ -58,6 +58,8 @@ export class SupplyScreen extends Screen {
             h('span'),
             h('div', { style: 'display:flex;flex-direction:column;align-items:flex-end;gap:.2em' }, has ? h('span.chip.good', 'установлено') : pending ? h('span.chip', 'в работе') : [h('span.pr', money(u.price)), btn('Заказать', () => this.buyUp(u), { cls: 'slim', act: 'up-' + u.id, disabled: (e.money ?? 0) < u.price })]));
         })];
+    } else if (this.tab === 'building') {
+      body = this.buildingBody();
     } else {
       const moneyLog = (this.state.log || []).filter((l) => l.kind === 'money').slice(-14).reverse();
       const veh = e.vehicles || [];
@@ -75,9 +77,44 @@ export class SupplyScreen extends Screen {
       deliveries.map((d) => { const left = d.arriveDay - day; const nm = items.find((i) => i.id === d.itemId)?.name || ups.find((u) => u.id === (d.itemId || d.upgradeId))?.name || d.itemId; return h('div.inv-row', h('span', `${nm}${d.qty > 1 ? ' × ' + d.qty : ''}`), h('span.c', { style: 'min-width:6em' }, left <= 0 ? 'сегодня' : left === 1 ? 'завтра' : `через ${pn(left, ['день', 'дня', 'дней'])}`)); })) : null;
     return this.frame({
       title: this.tab === 'cash' ? 'Сейф' : 'Снабжение', sub: this.tab === 'cash' ? 'Касса отделения' : 'Телефон: заказ', formNo: 'Заявка № 12-МТО', head,
-      tabs: [{ id: 'catalog', label: 'Каталог' }, { id: 'upgrades', label: 'Здание' }, { id: 'cash', label: 'Касса' }], tab: this.tab, onTab: (t) => { this.tab = t; this.refresh(); },
+      tabs: [{ id: 'catalog', label: 'Каталог' }, { id: 'upgrades', label: 'Улучшения' }, { id: 'building', label: 'Здание' }, { id: 'cash', label: 'Касса' }], tab: this.tab, onTab: (t) => { this.tab = t; this.refresh(); },
       body: h('div.col.grow', { style: 'gap:0;min-height:0' }, h('div.scroll.grow.pad', { 'data-scroll': 'sup-' + this.tab }, body), delivBlock),
     });
+  }
+  /** Вкладка «Здание»: состояние, поломки, хозтовары со склада, субботник, рекомендации (sim/building.js) */
+  buildingBody() {
+    const B = this.sim.building; const b = call(B, 'get', this.game);
+    if (!b) return h('div.small.dim', 'Сведений о здании нет.');
+    const e = this.eco; const inv = e.inventory || {};
+    const SUP = B.SUPPLY_ITEMS || {}; const BN = B.BROKEN_NAMES || {};
+    const broken = Object.keys(BN).filter((k) => b.broken?.[k]);
+    const recs = call(B, 'recommendations', this.game) || [];
+    const hist = (b.history || []).slice(-7);
+    const cleaner = !!(e.flags?.cleaner || e.upgrades?.cleaner);
+    return [
+      h('div.small.dim.mb', 'Хозяйство отделения. Здание изнашивается каждый день: люди, посетители, задержанные, бои и сырость. Хозтовары со склада завхоз пускает в дело сам на утреннем разводе — или прикажите сейчас.'),
+      h('div.sect', 'Состояние'),
+      h('div', { 'data-bld': 'bars' }, bar(b.clean, 'good', 'Чистота'), bar(b.order, 'good', 'Порядок'), bar(b.equipment, 'good', 'Оборудование'), bar(b.supplies, 'good', 'Хоз. запас')),
+      h('div.small', { style: 'margin-top:.3em' }, `Влияние на настроение состава: ${b.moraleMod > 0 ? '+' : ''}${b.moraleMod}. ${cleaner ? 'Уборщица работает (8 тыс. в день).' : 'Уборщицы нет.'}`),
+      broken.length ? h('div.note.bad', 'Неисправно: ' + broken.map((k) => BN[k]).join(', ') + '.') : h('div.small.dim', 'Поломок нет.'),
+      b.today?.lostCalls ? h('div.note.warn', `Сегодня до дежурки не дозвонились: ${b.today.lostCalls}.`) : null,
+      h('div.sect', 'Хозтовары на складе'),
+      Object.keys(SUP).map((id) => {
+        const it = this.sim.economy?.ITEMS?.[id]; const n = inv[id] || 0;
+        return h('div.inv-row', { 'data-bitem': id }, h('span.grow', `${it ? it.name : SUP[id].short}: ${n}`),
+          n > 0 ? btn('Пустить в дело', () => this.bAct(() => call(B, 'use', this.game, id)), { cls: 'slim', act: 'use-' + id }) : btn('Заказать', () => { this.tab = 'catalog'; this.refresh(); }, { cls: 'slim', act: 'order-' + id }));
+      }),
+      h('div', { style: 'margin-top:.5em' }, btn('Субботник (свободные на участке берутся за тряпки)', () => this.bAct(() => call(B, 'subbotnik', this.game)), { act: 'subbotnik', disabled: b.lastSubbotnik === this.state.time?.day })),
+      h('div.sect', 'Рекомендации завхоза'),
+      recs.map((r) => h('div.small', '• ' + r)),
+      hist.length ? [h('div.sect', 'По дням'), hist.map((x) => h('div.inv-row.small', h('span', { style: 'min-width:3em' }, `Д${x.day}`), h('span.grow', `чист. ${x.clean} · пор. ${x.order} · обор. ${x.equipment}`), h('span.dim', `посет. ${x.visitors}${x.fights ? ' · бой' : ''}${x.lostCalls ? ' · потеряно звонков ' + x.lostCalls : ''}`)))] : null,
+    ];
+  }
+  bAct(fn) {
+    const r = fn();
+    if (!r) { this.ui.toast('Недоступно', 'warn'); return; }
+    if (r.ok === false) { this.ui.toast(r.reason || 'Отказ', 'bad'); return; }
+    this.ui.toast(r.text || 'Сделано', 'good', { dur: 6 }); this.ui.sfx('ui_click'); this.refresh();
   }
   buy(it, q, channel = null) {
     const r = call(this.sim.economy, 'buy', this.game, it.id, q, channel || null);

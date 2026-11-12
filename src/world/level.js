@@ -68,6 +68,117 @@ export const CELLS = [
   { id: 'cell_3', rect: [24, 0, 27, 4.5], door: [25.0, 4.0, 26.0, 5.0] },
 ];
 
+// Обстановка v1.1 (здание, двор, улица). Настенные предметы стоят на поверхности стены и смотрят в комнату.
+// Поверхности стен комнаты [x0,z0,x1,z1]: запад x0, восток x1−0.5, север z0, юг z1−0.5.
+// cond — «условный» предмет, виден только при состоянии здания (sim/building.js → state.building.conds):
+//   'dirty' — чистота < 60, 'filthy' — < 35, 'leak' — оборудование/крыша < 45. Условные не блокируют проход.
+const PI = Math.PI, E = -Math.PI / 2, Wr = Math.PI / 2;
+const DECOR = [
+  // Кабинет начальника
+  { type: 'radiator', x: 3.0, z: 0.0, rot: 0, w: 0.6 },
+  { type: 'wall_clock', x: 5.0, z: 9.5, y: 2.2, rot: PI },
+  { type: 'carpet', x: 3.5, z: 6.6, rot: 0, l: 2.0, w: 0.55 },
+  { type: 'cabinet_small', x: 0.25, z: 6.4, rot: Wr, rect: [0.05, 6.0, 0.5, 6.8], block: 'o' },
+  { type: 'ashtray', x: 4.2, z: 3.35, y: 0.79 },
+  // Опера
+  { type: 'radiator', x: 10.0, z: 0.0, rot: 0, w: 0.6 },
+  { type: 'map_wall', x: 7.02, z: 4.5, y: 1.6, rot: Wr },
+  { type: 'locker', x: 7.25, z: 8.4, rot: Wr, rect: [7.0, 7.9, 7.55, 8.9], block: 'O' },
+  { type: 'pc', x: 11.3, z: 2.35, y: 0.77, rot: PI },
+  { type: 'ashtray', x: 9.0, z: 2.45, y: 0.77 },
+  // Оружейка
+  { type: 'locker', x: 17.25, z: 5.6, rot: E, rect: [16.95, 5.1, 17.5, 6.1], block: 'O' },
+  { type: 'poster', v: 'rules', x: 13.02, z: 6.3, y: 1.5, rot: Wr },
+  // ИВС
+  { type: 'heater', x: 26.15, z: 7.0, rot: E },
+  { type: 'radio_old', x: 25.0, z: 8.75, y: 0.77, rot: PI },
+  { type: 'poster', v: 'rules', x: 18.02, z: 7.0, y: 1.5, rot: Wr },
+  { type: 'bucket_mop', x: 18.4, z: 9.1 },
+  { type: 'dirt_stain', x: 22.5, z: 1.8, s: 0.45, cond: 'dirty' },
+  { type: 'dirt_stain', x: 20.5, z: 2.2, y: 2.0, rot: E, wall: true, s: 0.5, cond: 'filthy' },
+  // Генераторная
+  { type: 'cabinet_small', x: 27.25, z: 8.5, rot: Wr, rect: [27.0, 8.05, 27.5, 8.95], block: 'o' },
+  { type: 'puddle', x: 28.6, z: 7.3, s: 0.6, cond: 'leak' },
+  // Коридор: таблички у дверей, часы, пожарный щит, правила, дорожка
+  { type: 'sign_room', room: 'office', x: 4.55, z: 10.02, y: 1.6, rot: 0 },
+  { type: 'sign_room', room: 'opers', x: 11.05, z: 10.02, y: 1.6, rot: 0 },
+  { type: 'sign_room', room: 'armory', x: 16.55, z: 10.02, y: 1.6, rot: 0 },
+  { type: 'sign_room', room: 'ivs', x: 18.45, z: 10.02, y: 1.6, rot: 0 },
+  { type: 'sign_room', room: 'generator', x: 29.55, z: 10.02, y: 1.6, rot: 0 },
+  { type: 'sign_room', room: 'toilet', x: 2.95, z: 13.5, y: 1.6, rot: PI },
+  { type: 'sign_room', room: 'rest', x: 8.0, z: 13.5, y: 1.6, rot: PI },
+  { type: 'sign_room', room: 'duty', x: 24.55, z: 13.5, y: 1.6, rot: PI },
+  { type: 'wall_clock', x: 17.5, z: 10.02, y: 2.3, rot: 0 },
+  { type: 'fire_shield', x: 26.9, z: 10.02, y: 1.3, rot: 0 },
+  { type: 'poster', v: 'rules', x: 10.0, z: 13.5, y: 1.6, rot: PI },
+  { type: 'radiator', x: 31.5, z: 12.0, rot: E, w: 0.6 },
+  { type: 'trash_can', x: 13.45, z: 10.35 },
+  { type: 'carpet', x: 16.0, z: 12.0, rot: Wr, l: 13.5, w: 0.6 },
+  { type: 'trash_pile', x: 31.0, z: 10.5, rot: 0.6, cond: 'filthy' },
+  { type: 'dirt_stain', x: 8.5, z: 12.4, s: 0.55, cond: 'dirty' },
+  { type: 'dirt_stain', x: 5.0, z: 10.02, y: 2.2, rot: 0, wall: true, s: 0.6, cond: 'dirty' },
+  { type: 'puddle', x: 16.0, z: 13.2, s: 0.55, cond: 'filthy' },
+  // Туалет
+  { type: 'radiator', x: 1.5, z: 19.5, rot: PI, w: 0.4 },
+  { type: 'bucket_mop', x: 0.45, z: 14.5, rot: 0.4 },
+  { type: 'puddle', x: 1.6, z: 16.4, s: 0.5, cond: 'dirty' },
+  { type: 'dirt_stain', x: 3.5, z: 15.2, y: 2.2, rot: E, wall: true, s: 0.5, cond: 'dirty' },
+  { type: 'dirt_stain', x: 2.9, z: 15.0, s: 0.4, cond: 'filthy' },
+  // Комната отдыха
+  { type: 'curtains', x: 7.0, z: 19.5, y: 1.55, rot: PI, w: 1.0 },
+  { type: 'heater', x: 4.45, z: 18.9, rot: Wr },
+  { type: 'radio_old', x: 4.45, z: 17.0, y: 1.5, rot: Wr },
+  { type: 'poster', v: 'agit', x: 4.02, z: 18.2, y: 1.6, rot: Wr },
+  { type: 'wall_clock', x: 8.6, z: 14.02, y: 2.2, rot: 0 },
+  { type: 'carpet', x: 6.6, z: 17.3, rot: Wr, l: 1.1, w: 0.7 },
+  { type: 'ashtray', x: 5.5, z: 14.95, y: 0.75 },
+  { type: 'puddle', x: 7.9, z: 16.6, s: 0.45, cond: 'leak' },
+  { type: 'bucket_mop', x: 7.9, z: 16.6, cond: 'leak' },
+  // Вестибюль
+  { type: 'poster', v: 'honor', x: 18.3, z: 19.5, y: 1.65, rot: PI },
+  { type: 'radiator', x: 12.0, z: 19.5, rot: PI, w: 0.6 },
+  { type: 'radiator', x: 20.25, z: 19.5, rot: PI, w: 0.45 },
+  { type: 'poster', v: 'agit', x: 10.02, z: 18.0, y: 1.75, rot: Wr },
+  { type: 'trash_can', x: 17.65, z: 19.1 },
+  { type: 'carpet', mat: true, x: 16.25, z: 18.9, rot: 0, l: 0.45, w: 0.75 },
+  { type: 'wall_clock', x: 21.0, z: 14.02, y: 2.3, rot: 0 },
+  { type: 'puddle', x: 16.3, z: 17.9, s: 0.6, cond: 'dirty' },
+  { type: 'dirt_stain', x: 13.5, z: 16.5, s: 0.5, cond: 'dirty' },
+  { type: 'dirt_stain', x: 10.02, z: 15.2, y: 2.3, rot: Wr, wall: true, s: 0.55, cond: 'filthy' },
+  { type: 'trash_pile', x: 21.15, z: 14.45, rot: -0.5, cond: 'filthy' },
+  // Дежурная часть
+  { type: 'wall_clock', x: 26.5, z: 14.02, y: 2.25, rot: 0 },
+  { type: 'radiator', x: 28.25, z: 19.5, rot: PI, w: 0.8 },
+  { type: 'locker', x: 31.25, z: 18.95, rot: E, rect: [30.95, 18.45, 31.5, 19.45], block: 'O' },
+  { type: 'heater', x: 25.15, z: 19.2, rot: PI },
+  { type: 'ashtray', x: 23.05, z: 17.3, y: 0.81 },
+  { type: 'trash_can', x: 24.85, z: 14.4 },
+  { type: 'dirt_stain', x: 30.5, z: 14.02, y: 2.3, rot: 0, wall: true, s: 0.5, cond: 'dirty' },
+  { type: 'dirt_stain', x: 27.5, z: 16.5, s: 0.45, cond: 'filthy' },
+  { type: 'puddle', x: 29.8, z: 15.8, s: 0.5, cond: 'leak' },
+  { type: 'bucket_mop', x: 29.8, z: 15.8, cond: 'leak' },
+  // Улица: палисадник вдоль фасада, скамейка, урны, будка, деревья, лужи, плакат на остановке
+  { type: 'fence', x: 4.4, z: 20.7, rot: 0, w: 4.2, rect: [0.2, 20.5, 8.6, 20.9], block: 'o' },
+  { type: 'fence', x: 28.7, z: 20.7, rot: 0, w: 2.9, rect: [25.8, 20.5, 31.6, 20.9], block: 'o' },
+  { type: 'bench_street', x: 23.0, z: 20.65, rot: 0, rect: [22.1, 20.4, 23.9, 20.9], block: 'o' },
+  { type: 'trash_can', x: 24.35, z: 20.6 },
+  { type: 'lamp_wall', x: 23.0, z: 20.02, y: 2.4, rot: 0, outdoor: true, radius: 5 },
+  { type: 'phone_booth', x: -3.25, z: 21.75, rot: 0, rect: [-3.7, 21.3, -2.8, 22.2], block: 'O' },
+  { type: 'tree', x: 3.25, z: 22.25, rot: 0.3, rect: [3.0, 22.0, 3.5, 22.5], block: 'O' },
+  { type: 'tree', x: 33.75, z: 22.25, rot: 1.9, rect: [33.5, 22.0, 34.0, 22.5], block: 'O' },
+  { type: 'tree', x: 31.25, z: 29.25, rot: 4.1, rect: [31.0, 29.0, 31.5, 29.5], block: 'O' },
+  { type: 'poster', v: 'ad', x: 26.4, z: 29.47, y: 0.85, rot: PI },
+  { type: 'trash_can', x: 29.0, z: 28.9 },
+  { type: 'puddle', x: 6.5, z: 24.6, s: 0.9 }, { type: 'puddle', x: 17.5, z: 26.5, s: 0.7 },
+  { type: 'puddle', x: 30.5, z: 24.8, s: 1.0 }, { type: 'puddle', x: -2.5, z: 26.0, s: 0.6 },
+  // Двор: контейнер, деревья, урна, лужи
+  { type: 'container', x: 20.0, z: -5.4, rot: 0, rect: [17.6, -6.5, 22.4, -4.3], block: 'O' },
+  { type: 'tree', x: 7.25, z: -2.75, rot: 2.2, rect: [7.0, -3.0, 7.5, -2.5], block: 'O' },
+  { type: 'tree', x: 9.75, z: -6.25, rot: 5.0, rect: [9.5, -6.5, 10.0, -6.0], block: 'O' },
+  { type: 'trash_can', x: 31.25, z: -0.5 },
+  { type: 'puddle', x: 11.0, z: -1.8, s: 1.0 }, { type: 'puddle', x: 23.0, z: -1.5, s: 0.8 }, { type: 'puddle', x: 5.0, z: -3.5, s: 0.7 },
+];
+
 // Мебель/предметы. type → модель в рендере. block: 'o' низкое / 'O' высокое / null (не мешает).
 // rect — занимаемая площадь (для препятствия), y — высота установки, rot — поворот (рад).
 export const PROPS = [
@@ -84,9 +195,9 @@ export const PROPS = [
   { type: 'flag', x: 0.4, z: 0.6 },
   { type: 'bookshelf', x: 0.35, z: 4.5, rot: Math.PI / 2, rect: [0.1, 3.5, 0.7, 5.5], block: 'O' },
   // стол секретаря (у восточной стены кабинета)
-  { type: 'desk', x: 5.8, z: 6.6, rot: -Math.PI / 2, rect: [5.3, 5.8, 6.3, 7.4], block: 'o' },
-  { type: 'chair_office', x: 6.55, z: 6.6, rot: -Math.PI / 2 },
-  { type: 'typewriter', x: 5.75, z: 6.6, y: 0.77, rot: -Math.PI / 2 }, { type: 'papers', x: 5.8, z: 7.1, y: 0.77, rot: Math.PI / 2 }, { type: 'lamp_desk', x: 5.8, z: 6.0, y: 0.77 },
+  { type: 'desk', x: 5.55, z: 6.6, rot: -Math.PI / 2, rect: [5.05, 5.8, 6.05, 7.4], block: 'o' },
+  { type: 'chair_office', x: 6.3, z: 6.6, rot: -Math.PI / 2 },
+  { type: 'typewriter', x: 5.5, z: 6.6, y: 0.77, rot: -Math.PI / 2 }, { type: 'papers', x: 5.55, z: 7.1, y: 0.77, rot: Math.PI / 2 }, { type: 'lamp_desk', x: 5.55, z: 6.0, y: 0.77 },
   { type: 'plant', x: 6.6, z: 9.4 }, { type: 'coat_rack', x: 0.5, z: 9.4 },
   { type: 'coat_rack', x: 6.1, z: 9.0 },
   // Опера
@@ -168,6 +279,7 @@ export const PROPS = [
   { type: 'wrecked_car', x: 14.0, z: -4.0, rect: [12.0, -5.0, 16.0, -3.0], block: 'o' },
   { type: 'fuel_tank', x: 25.0, z: -3.5, rect: [24.0, -4.5, 26.0, -2.5], block: 'o' },
   { type: 'yardlamp', x: 29.5, z: -0.6, y: 2.6 },
+  ...DECOR,
 ];
 
 // Именованные точки. kind: seat/stand/use/post/spawn/smoke/sleep/visitor/cell
@@ -176,7 +288,7 @@ export const POINTS = {
   commander_desk:  { x: 3.5, z: 2.0, yaw: 0, kind: 'seat', zone: 'office' },
   personnel_files: { x: 5.2, z: 1.0, yaw: Math.PI / 2, kind: 'use', zone: 'office' },
   org_chart:       { x: 1.5, z: 1.0, yaw: Math.PI, kind: 'use', zone: 'office' },
-  secretary_desk:  { x: 6.55, z: 6.6, yaw: -Math.PI / 2, kind: 'seat', zone: 'office' },
+  secretary_desk:  { x: 6.3, z: 6.6, yaw: -Math.PI / 2, kind: 'seat', zone: 'office' },
   commander_desk_side: { x: 2.4, z: 4.2, yaw: 2.4, kind: 'stand', zone: 'office' },
   office_corner:   { x: 1.0, z: 9.0, yaw: 0.8, kind: 'stand', zone: 'office' },
   dept_ugro:       { x: 9.9, z: 4.0, yaw: Math.PI, kind: 'stand', zone: 'opers' },
