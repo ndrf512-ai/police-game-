@@ -1,6 +1,7 @@
 // Дежурная часть (v1.1): журнал КУСП (книга учёта сообщений о преступлениях), передача сообщений отделам,
 // контроль обстановки (кто свободен, кто на выезде, последний доклад), доклад игроку в дежурке, распоряжения.
 // Слабый дежурный регистрирует с опозданием и теряет записи: доверие районов падает, угрозыск позже берётся за дела.
+import { CRIME_TYPE_BY_ID } from './crimes.js';
 import { R, absNow, num, rankShort, oName, emit, glog, dep, hhmm, dmOf } from './city_util.js';
 import { C, liveTasks, trust, authority } from './city_core.js';
 import { dForm } from './city_data.js';
@@ -47,6 +48,13 @@ function deptFor(cr, source) {
   if (!cr) return ['uchastok', null];
   if (cr.missing) return ['uchastok', cr.severity >= 4 ? 'ugro' : null];
   const sev = num(cr.severity, 1);
+  // тип происшествия сам говорит, какие отделы нужны (crime_types_v11: depts, multi)
+  const tdef = CRIME_TYPE_BY_ID[cr.typeId];
+  if (tdef && Array.isArray(tdef.depts) && tdef.depts.length) {
+    const ds = tdef.depts.filter((x) => ['ugro', 'pps', 'uchastok', 'duty', 'sled', 'spec', 'ivs'].includes(x) && x !== 'duty');
+    if (cr.inProgress && !ds.includes('pps')) ds.unshift('pps');
+    if (ds.length) return [ds[0], (tdef.multi || sev >= 4) ? (ds[1] || null) : null];
+  }
   if (cr.inProgress) return ['pps', sev >= 4 ? 'ugro' : null];
   switch (cr.category) {
     case 'violent': return ['ugro', sev >= 4 ? 'pps' : null];
