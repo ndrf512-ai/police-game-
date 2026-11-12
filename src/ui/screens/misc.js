@@ -2,7 +2,7 @@
 import { Screen } from './base.js';
 import { h, btn, seg, toggle, bar, call, txt, hhmm, sfx, money, dateStr } from '../dom.js';
 import { portraitImg } from '../portrait.js';
-import { APPROACHES, MOOD_NAMES, MOOD_NAMES_F, headerLine } from '../labels.js';
+import { APPROACHES, MOOD_NAMES, MOOD_NAMES_F, headerLine, ROLE_NAMES } from '../labels.js';
 
 const nameOf = (p) => (p ? `${p.lastName || ''} ${p.firstName || ''} ${p.patronymic || ''}`.trim() : '—');
 
@@ -181,26 +181,67 @@ export class OfferScreen extends Screen {
 }
 export class InboxScreen extends Screen {
   static pause = true; static sound = 'ui_paper';
-  constructor(ui, params) { super(ui, params); this.sel = params.itemId || null; this.res = {}; }
-  items() {
+  constructor(ui, params) { super(ui, params); this.sel = params.itemId || null; this.res = {}; this.tab = params.tab || 'in'; this.compose = null; }
+  all() {
     const inbox = (this.state.inbox || []).slice().reverse().map((x) => ({ ...x, _ref: x }));
     const offers = (this.state.city?.offers || []).slice().reverse().map((x) => ({ ...x, _offer: true, _ref: x }));
-    return [...offers, ...inbox].sort((a, b) => (a.answered ? 1 : 0) - (b.answered ? 1 : 0) || (b.day * 1440 + b.minute) - (a.day * 1440 + a.minute)).slice(0, 40);
+    return [...offers, ...inbox];
+  }
+  items(tab = this.tab) {
+    const t = (x) => (x.day || 0) * 1440 + (x.minute || 0);
+    const all = this.all();
+    let list;
+    if (tab === 'out') list = all.filter((x) => x.dir === 'out');
+    else if (tab === 'archive') list = all.filter((x) => x.dir !== 'out' && x.answered != null);
+    else list = all.filter((x) => x.dir !== 'out' && (x.answered == null || this.res[x.id]));
+    return list.sort((a, b) => t(b) - t(a)).slice(0, 40);
   }
   render() {
-    const list = this.items(); const cur = list.find((x) => x.id === this.sel) || null;
-    const left = h('div.scroll.grow', { 'data-scroll': 'inbox' }, list.length ? list.map((x) => h('div.li' + (x.id === this.sel ? '.sel' : '') + (x.answered ? '.off' : ''), { onclick: () => { sfx('ui_paper'); this.sel = x.id; this.refresh(); } },
-      h('div.li-main', h('div.li-t', x.title || 'Без названия'), h('div.li-s', `Д${x.day} ${hhmm(x.minute || 0)}${x.answered ? ' · решено' : x.choices?.length ? ' · ждёт решения' : ''}`)),
-      !x.answered && x.choices?.length ? h('div.li-side', h('span.chip.red', '!')) : null)) : h('div.empty', 'Стол пуст. Редкий случай.'));
+    const list = this.items(); const cur = this.compose ? null : (this.all().find((x) => x.id === this.sel) || null);
+    const nIn = this.items('in').filter((x) => x.answered == null).length;
+    const left = h('div.col.grow', { style: 'min-height:0' },
+      h('div.btns', { style: 'margin:0 0 .3em' }, btn('Написать документ', () => { this.compose = { tpl: null }; this.sel = null; this.refresh(); }, { cls: 'slim' + (this.compose ? ' primary' : ''), act: 'compose' })),
+      h('div.scroll.grow', { 'data-scroll': 'inbox' }, list.length ? list.map((x) => h('div.li' + (x.id === this.sel ? '.sel' : '') + (x.answered != null && x.dir !== 'out' ? '.off' : ''), { 'data-item': x.id, onclick: () => { sfx('ui_paper'); this.sel = x.id; this.compose = null; this.refresh(); } },
+        h('div.li-main', h('div.li-t', x.title || 'Без названия'), h('div.li-s', `Д${x.day} ${hhmm(x.minute || 0)}${x.dir === 'out' ? ' · отправлено' : x.answered != null ? (x.decidedBy === 'deputy' ? ' · решил зам' : ' · решено') : x.choices?.length ? ' · ждёт решения' : ''}`)),
+        x.answered == null && x.choices?.length ? h('div.li-side', h('span.chip.red', '!')) : null)) : h('div.empty', this.tab === 'out' ? 'Исходящих нет.' : this.tab === 'archive' ? 'Архив пуст.' : 'Стол пуст. Редкий случай.')));
     let right;
-    if (cur) {
+    if (this.compose) right = this.composeView();
+    else if (cur) {
       const done = cur.answered != null || this.res[cur.id];
-      right = h('div.scroll.grow.pad', h('div.letter', h('h3', { style: 'margin:0 0 .5em' }, cur.title), h('div', txt(cur.text))),
+      const exp = cur.expires && !done ? h('div.small.dim', { style: 'margin-top:.4em' }, `Срок решения: Д${cur.expires.day} ${hhmm(cur.expires.minute)}`) : null;
+      right = h('div.scroll.grow.pad', h('div.letter', h('h3', { style: 'margin:0 0 .5em' }, cur.title), h('div', txt(cur.text)), exp),
         done ? h('div.note.mt', this.res[cur.id] || cur.result || 'Принято.')
           : (cur.choices || []).length ? h('div.choices.mt', cur.choices.map((c) => h('button.choice', { type: 'button', onclick: (e) => { e.stopPropagation(); this.res[cur.id] = decide(this, cur, c); this.refresh(); } }, h('b', c.label), c.desc ? h('span', c.desc) : null)))
             : h('div.mt', btn('Ознакомлен', () => { this.res[cur.id] = decide(this, cur, { id: 'ok' }); this.refresh(); }, { cls: 'primary' })));
-    } else right = h('div.pad', h('div.note', 'Рапорты, просьбы, звонки сверху и предложения, от которых трудно отказаться. Если не решить вовремя — решат без вас.'));
-    return this.frame({ title: 'Бумаги на столе', cls: 'wide', formNo: 'Входящие', body: h('div.split', h('div.pane.l.narrowL', left), h('div.pane.r.fill', right)) });
+    } else right = h('div.pad', h('div.note', 'Рапорты, просьбы, звонки сверху и предложения, от которых трудно отказаться. Если не решить вовремя — решат без вас (или зам, если назначен). Свои распоряжения и запросы — «Написать документ».'));
+    return this.frame({
+      title: 'Бумаги на столе', cls: 'wide', formNo: 'Делопроизводство',
+      tabs: [{ id: 'in', label: 'Входящие', count: nIn, red: nIn > 0 }, { id: 'out', label: 'Исходящие' }, { id: 'archive', label: 'Архив' }], tab: this.tab,
+      onTab: (id) => { this.tab = id; this.compose = null; this.refresh(); },
+      body: h('div.split', h('div.pane.l.narrowL', left), h('div.pane.r.fill', right)),
+    });
+  }
+  /** Бланк нового документа */
+  composeView() {
+    const Dm = this.sim.duty; const c = this.compose;
+    const tpls = (call(Dm, 'docTemplates', this.game) || []);
+    if (!Dm || !tpls.length) return h('div.pad', h('div.note', 'Бланков нет: канцелярия не работает.'));
+    const t = tpls.find((x) => x.id === c.tpl);
+    if (!t) {
+      const grp = { order: 'Распоряжения и приказы', request: 'Запросы в управление', memo: 'Служебные записки' };
+      return h('div.scroll.grow.pad', Object.keys(grp).map((g) => [h('div.sect', grp[g]), h('div.choices', tpls.filter((x) => x.group === g).map((x) => h('button.choice', { type: 'button', 'data-tpl': x.id, disabled: !!x.disabled, onclick: (e) => { e.stopPropagation(); if (x.disabled) return; sfx('ui_paper'); this.compose = { tpl: x.id }; this.refresh(); } }, h('b', x.label), h('span', x.disabled || x.desc))))]));
+    }
+    const needs = t.needs || [];
+    const deptsAll = (this.sim.departments?.DEPTS || []).filter((d) => !t.depts || t.depts.includes(d.id));
+    const districts = (this.state.city?.districts || []).map((d) => ({ id: d.id, label: (d.name || d.id).split(' ')[0] }));
+    const staffList = (this.state.staff || []).filter((o) => !['dead', 'fired', 'candidate'].includes(o.status) && o.role !== 'secretary').slice(0, 30);
+    const ready = needs.every((n) => (n === 'dept' ? c.deptId : n === 'district' ? c.districtId : n === 'officer' ? c.officerId : true));
+    return h('div.scroll.grow.pad', h('div.letter', h('h3', { style: 'margin:0 0 .3em' }, t.label), h('div.small.dim', t.desc)),
+      needs.includes('dept') ? [h('div.sect', 'Кому'), seg(deptsAll.map((d) => ({ id: d.id, label: d.short })), c.deptId || '', (v) => { c.deptId = v; this.refresh(); }, { small: true, wrap: true, act: 'doc-dept' })] : null,
+      needs.includes('district') ? [h('div.sect', 'Район'), seg(districts, c.districtId || '', (v) => { c.districtId = v; this.refresh(); }, { small: true, wrap: true, act: 'doc-district' })] : null,
+      needs.includes('officer') ? [h('div.sect', 'Сотрудник'), h('div.col', { style: 'gap:.2em' }, staffList.map((o) => h('div.li' + (c.officerId === o.id ? '.sel' : ''), { 'data-off': o.id, onclick: (e) => { e.stopPropagation(); c.officerId = o.id; this.refresh(); } }, h('div.li-main', h('div.li-t', `${o.rank} ${o.lastName} ${o.firstName?.[0] || ''}.`), h('div.li-s', ROLE_NAMES[o.role] || o.role)))))] : null,
+      h('div.btns.mt', btn('Подписать и отправить', () => { const r = call(Dm, 'writeDoc', this.game, { tpl: t.id, deptId: c.deptId, districtId: c.districtId, officerId: c.officerId }); sfx('ui_stamp'); if (r && r.ok) { this.ui.toast(r.text || 'Отправлено', 'good'); this.compose = null; this.tab = 'out'; this.sel = r.item ? r.item.id : null; } else this.ui.toast((r && r.reason) || 'Не отправлено', 'warn'); this.refresh(); }, { cls: 'primary', act: 'doc-send', disabled: !ready }),
+        btn('Другой бланк', () => { this.compose = { tpl: null }; this.refresh(); }, { cls: 'slim', act: 'doc-back' })));
   }
 }
 

@@ -16,7 +16,7 @@ const INTERACT = [
   { point: 'city_map', at: [31.47, 1.6, 17.0], label: 'Карта города', screen: 'citymap' },
   { point: 'station_plan', at: [29.0, 1.6, 14.05], label: 'Схема участка — оборона', screen: 'stationplan' },
   { point: 'radio', at: [23.3, 0.95, 16.2], label: 'Рация — журнал эфира', screen: 'radio' },
-  { point: 'duty_desk', at: [23.3, 0.9, 17.8], label: 'Сводка дежурного', screen: 'briefing' },
+  { point: 'duty_desk', at: [23.3, 0.9, 17.8], label: 'Дежурная часть: журнал КУСП, обстановка', screen: 'duty' },
   { point: 'monitors', at: [26.5, 1.0, 19.1], label: 'Мониторы наблюдения', screen: 'stationplan' },
   { point: 'personnel_files', at: [6.05, 1.2, 1.0], label: 'Шкаф с личными делами', screen: 'personnel' },
   { point: 'commander_desk', at: [4.3, 0.85, 2.9], label: 'Телефон: снабжение', screen: 'supply' },
@@ -83,6 +83,7 @@ export class Game {
     try { S.staff?.init?.(this, 13); } catch (e) { console.error('staff.init', e); }
     try { S.city?.init?.(this); } catch (e) { console.error('city.init', e); }
     try { S.departments?.init?.(this); } catch (e) { console.error('departments.init', e); }
+    try { S.duty?.init?.(this); } catch (e) { console.error('duty.init', e); }
     try { S.campaign?.update?.(this); } catch (e) { console.error('campaign.update', e); }
     this._initPlayer();
     this._startRuntime();
@@ -164,6 +165,9 @@ export class Game {
     try { S.building?.init?.(this); } catch (e) { console.warn('migrate building', e); } // состояние здания (1.1): init дополняет недостающие поля
     // секретарь появилась в 1.1
     if (S.staff?.makeOfficer && !s.staff.some((o) => o.role === 'secretary')) { try { const o = S.staff.makeOfficer(this, new RNG((s.seed ^ 0x9e3779b9) >>> 0), { role: 'secretary', gender: 'f' }); o.status = 'home'; s.staff.push(o); } catch (e) { console.warn('migrate secretary', e); } }
+    // следствие и спецподразделение, дежурная часть (1.1)
+    try { S.departments?.migrate?.(this, new RNG((s.seed ^ 0x2545f491) >>> 0)); } catch (e) { console.warn('migrate units', e); }
+    try { S.duty?.init?.(this); } catch (e) { console.warn('migrate duty', e); }
   }
 
   // ——— главный шаг ———
@@ -188,6 +192,7 @@ export class Game {
       try { this.sim.staff?.update?.(this, dt); } catch (e) { this._err('staff', e); }
       try { this.sim.departments?.update?.(this, dt); } catch (e) { this._err('departments', e); }
       try { this.sim.building?.update?.(this, dt); } catch (e) { this._err('building', e); }
+      try { this.sim.duty?.update?.(this, dt); } catch (e) { this._err('duty', e); }
       if ((this._ecoT = (this._ecoT || 0) + dt) > 10) { this._ecoT = 0; try { this.sim.economy?.tick?.(this); } catch (e) { this._err('economy', e); } }
       if ((this._endChk = (this._endChk || 0) + dt) > 2) { this._endChk = 0; try { this.sim.campaign?.checkEnd?.(this); } catch (e) { this._err('campaign', e); } }
     }
@@ -216,6 +221,7 @@ export class Game {
     try { S.detainees?.dayStart?.(this); } catch (e) { console.error(e); }
     try { S.departments?.dayStart?.(this); } catch (e) { console.error(e); }
     try { S.building?.dayStart?.(this); } catch (e) { console.error(e); }
+    try { S.duty?.dayStart?.(this); } catch (e) { console.error(e); }
     try { S.campaign?.update?.(this); } catch (e) { console.error(e); }
     this.bus.emit('day:start', { day });
     this.save(true);

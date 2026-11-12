@@ -80,7 +80,7 @@ function leaderScore(o) { return sk(o, 'discipline') + sk(o, 'tactics') + rankIn
 /** собрать наряд автоматически (для «Выслать наряд» по рации, приказов начальства) */
 export function autoTask(game, type, opts = {}) {
   const def = TASK_DEF[type];
-  const pool = availableOfficers(game).filter((o) => o.role !== 'duty' && o.role !== 'secretary');
+  const pool = availableOfficers(game).filter((o) => o.role !== 'duty' && o.role !== 'secretary' && (!['spec', 'sledovatel'].includes(o.role) || (opts.roles || []).includes(o.role))); // 1.1: спецназ и следователь — только по прямому запросу
   const prefer = opts.roles || def.roles.preferred;
   const need = def.roles.required;
   const sorted = pool.slice().sort((a, b) => (prefer.includes(b.role) ? 1 : 0) - (prefer.includes(a.role) ? 1 : 0) || num(a.fatigue, 20) - num(b.fatigue, 20));
