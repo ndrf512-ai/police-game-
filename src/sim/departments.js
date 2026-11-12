@@ -11,7 +11,6 @@ import { dForm } from './city_data.js';
 import { autoTask, availableOfficers } from './city_tasks.js';
 import { answerRadio, dutySay } from './city_radio.js';
 import { availableCount } from './city_crime.js';
-import { authority as cityAuthority } from './city_core.js';
 import { cases } from './cases.js';
 import { deputy, deputyOf, appointDeputy, resolveDeputy } from './deputy.js';
 
