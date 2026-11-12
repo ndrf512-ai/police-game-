@@ -2,6 +2,7 @@
 // экономика, разбой, кражи. Формат и переменные — как в crime_types_violent.js (см. crime_lex.js и src/sim/crimes.js).
 // Новые поля:
 //   depts   — какие отделы участвуют (id из src/sim/departments.js: ugro, pps, uchastok, duty, ivs); пока только данные;
+//   mood    — настроение звонящего (вместо вычисляемого), массив;
 //   multi   — true, если для отработки нужны несколько отделов сразу;
 //   missing — розыск пропавшего: генератор кладёт в преступление объект crime.missing (как missingCase в city_crime.js),
 //             по нему работают задачи «розыск» (search). {who, fates:{судьба: вес}, reporter:[кто заявил], seen:[шаблоны «последний раз…»]}.
@@ -23,7 +24,7 @@ export const V11 = [
     vic: [1, 2], vk: ['soldier_v', 'worker', 'traveler'], vc: { ok: 2, injured: 4, serious: 1 }, loot: ['проигранные {sumS}', 'дембельские деньги и часы', 'зарплата за два месяца'],
     danger: 0.3, solv: 0.5, ip: 0.7, seen: 1, flee: 0.7, car: 0, dur: [15, 45], ev: ['violent'], complFav: ['crowd'], depts: ['pps'],
     d: [
-      'Драка у напёрсточников {placePrep}: проигравший вернулся с друзьями отбирать деньги. Дерутся человек {n} на {n}.',
+      'Драка у напёрсточников {placePrep}: проигравший вернулся с друзьями отбирать деньги. Дерутся стенка на стенку.',
       'Напёрсточники {placePrep} избили {v:проигравшего|проигравшую}: {v:тот|та} требовал{v:|а} вернуть проигранное. Проиграно: {loot}. {?armed:У «бригады» — {weapon}.}',
       'Самосуд над «лохотронщиками» {placePrep}: толпа держит двоих из «бригады», один уже на земле. Нужен наряд, пока не забили.',
     ],
@@ -336,7 +337,7 @@ export const V11 = [
     kinds: { flat: 8, hostel: 2 }, hours: 'any',
     perps: [0, 0], pk: ['local'], arm: { none: 1 },
     vic: [1, 1], vk: ['pensioner', 'resident', 'drunk'], vc: { dead: 3, serious: 1, ok: 1 }, loot: null,
-    danger: 0.02, solv: 1, ip: 1, seen: 0, flee: 0, car: 0, dur: [40, 120], who: { neighbor: 1 }, tags: ['body', 'social'], depts: ['uchastok'],
+    danger: 0.02, solv: 1, ip: 1, seen: 0, flee: 0, car: 0, dur: [40, 120], mood: ['calm', 'angry'], who: { neighbor: 1 }, tags: ['body', 'social'], depts: ['uchastok'],
     d: [
       'Из квартиры {addrHint} тяжёлый запах, хозя{v:ин|йка} не выходил{v:|а} неделю. Нужно вскрывать дверь в присутствии участкового.',
       'Соседи жалуются на запах из квартиры {addrHint}: мухи на площадке, почтовый ящик забит газетами. Живёт {v:одинокий пенсионер|одинокая пенсионерка}.',
@@ -381,7 +382,7 @@ export const V11 = [
     kinds: { school: 4, park: 3, market: 2, station: 1, street: 2 }, hours: 'day',
     perps: [0, 0], pk: ['local'], arm: { none: 1 },
     vic: [1, 1], vk: ['child'], vc: { ok: 1 }, loot: null,
-    danger: 0.1, solv: 0.7, ip: 0, seen: 0, flee: 0, car: 0, dur: [120, 480], who: { relative: 1 }, tags: ['missing', 'kids', 'search'], depts: ['uchastok', 'pps'], multi: true,
+    danger: 0.1, solv: 0.7, ip: 0, seen: 0, flee: 0, car: 0, dur: [120, 480], mood: ['crying', 'scared'], who: { relative: 1 }, tags: ['missing', 'kids', 'search'], depts: ['uchastok', 'pps'], multi: true,
     missing: {
       who: 'child', fates: { lost: 30, friend: 35, ran_away: 15, accident: 10, hospital: 5, dead: 3 }, reporter: ['мать', 'отец', 'бабушка'],
       seen: ['{v:ушёл|ушла} из школы после уроков и не {v:вернулся|вернулась}', '{v:пошёл|пошла} гулять во двор и не {v:пришёл|пришла} к ужину', 'последний раз {v:его|её} видели {placePrep}'],
@@ -400,7 +401,7 @@ export const V11 = [
     kinds: { street: 3, park: 2, market: 2, station: 2, flat: 2, hospital: 1 }, hours: 'any',
     perps: [0, 0], pk: ['local'], arm: { none: 1 },
     vic: [1, 1], vk: ['pensioner'], vc: { ok: 1 }, loot: null,
-    danger: 0.05, solv: 0.75, ip: 0, seen: 0, flee: 0, car: 0, dur: [120, 480], who: { relative: 1 }, tags: ['missing', 'search', 'social'], depts: ['uchastok', 'pps'], multi: true,
+    danger: 0.05, solv: 0.75, ip: 0, seen: 0, flee: 0, car: 0, dur: [120, 480], mood: ['crying', 'calm'], who: { relative: 1 }, tags: ['missing', 'search', 'social'], depts: ['uchastok', 'pps'], multi: true,
     missing: {
       who: 'elder', fates: { lost: 45, hospital: 25, dead: 15, friend: 15 }, reporter: ['дочь', 'сын', 'внучка', 'соседка'],
       seen: ['{v:вышел|вышла} за хлебом и не {v:вернулся|вернулась}', '{v:ушёл|ушла} из дома в тапочках', 'последний раз {v:его|её} видели {placePrep}'],
@@ -419,7 +420,7 @@ export const V11 = [
     kinds: { club: 4, park: 2, street: 2, station: 2, school: 1, hostel: 1 }, ptags: ['youth'], hours: 'evening',
     perps: [0, 0], pk: ['local'], arm: { none: 1 }, gang: { frostbitten: 1, drugs: 1 }, gp: 0.4,
     vic: [1, 1], vk: ['girl_v'], vc: { ok: 1 }, loot: null,
-    danger: 0.1, solv: 0.7, ip: 0, seen: 0, flee: 0, car: 0, dur: [120, 480], who: { relative: 1 }, tags: ['missing', 'search'], depts: ['uchastok', 'ugro'], multi: true,
+    danger: 0.1, solv: 0.7, ip: 0, seen: 0, flee: 0, car: 0, dur: [120, 480], mood: ['crying', 'scared'], who: { relative: 1 }, tags: ['missing', 'search'], depts: ['uchastok', 'ugro'], multi: true,
     missing: {
       who: 'girl', fates: { friend: 40, ran_away: 25, hospital: 10, kidnapped: 10, dead: 6 }, reporter: ['мать', 'отец', 'бабушка'],
       seen: ['ушла вечером на дискотеку и не вернулась', 'ушла «к подруге», у подруги её не было', 'уехала с компанией на иномарке'],
@@ -438,7 +439,7 @@ export const V11 = [
     kinds: { bar: 3, market: 2, station: 2, garage: 2, street: 2, factory: 2 }, hours: 'evening',
     perps: [0, 0], pk: ['local'], arm: { none: 1 }, gang: { sport: 1, frostbitten: 1, thieves: 1 }, gp: 0.5,
     vic: [1, 1], vk: ['man_v'], vc: { ok: 1 }, loot: null,
-    danger: 0.1, solv: 0.7, ip: 0, seen: 0, flee: 0, car: 0, dur: [120, 480], who: { relative: 1 }, tags: ['missing', 'search'], depts: ['uchastok'],
+    danger: 0.1, solv: 0.7, ip: 0, seen: 0, flee: 0, car: 0, dur: [120, 480], mood: ['crying', 'calm', 'angry'], who: { relative: 1 }, tags: ['missing', 'search'], depts: ['uchastok'],
     missing: {
       who: 'man', fates: { drunk_friend: 45, hospital: 15, ran_away: 10, dead: 12, kidnapped: 18 }, reporter: ['жена', 'мать', 'сестра'],
       seen: ['ушёл с получкой и не вернулся', 'поехал «по делам» и пропал', 'последний раз его видели у {placeGen}'],
@@ -457,7 +458,7 @@ export const V11 = [
     id: 'counterfeit_rubles', name: 'Фальшивые купюры', cat: 'economic', sev: 2, freq: 1.5,
     kinds: { market: 5, kiosk: 3, shop: 3, bar: 1 }, hours: 'day',
     perps: [1, 2], pk: ['conman', 'sneak', 'thief'], arm: { none: 1 }, gang: { thieves: 2, sport: 1 }, gp: 0.4,
-    vic: [1, 1], vk: ['vendor', 'cashier'], vc: { ok: 1 }, loot: ['товар на {sumS}', 'сдача с фальшивой купюры — {sumS}', 'блок сигарет и бутылка коньяка'],
+    vic: [1, 1], vk: ['vendor', 'cashier'], vc: { ok: 1 }, loot: ['товар на сумму {sumS}', 'сдача с фальшивой купюры — {sumS}', 'блок сигарет и бутылка коньяка'],
     danger: 0.05, solv: 0.35, ip: 0.5, seen: 0.9, flee: 0.8, car: 0, dur: [20, 60], ev: ['fraud'], tags: ['intel'], depts: ['ugro'],
     d: [
       'Сбыт фальшивых денег {placePrep}: {pn} {p:расплатился|расплатилась|расплатились} пятидесятитысячной купюрой, отпечатанной на ксероксе. Взято на сдачу: {loot}.',
@@ -491,7 +492,7 @@ export const V11 = [
     vic: [0, 0], loot: null,
     danger: 0.1, solv: 0.8, ip: 0.9, seen: 0.9, flee: 0.3, car: 0.5, dur: [60, 180], ev: ['fraud'], tags: ['intel'], depts: ['ugro', 'uchastok'], multi: true,
     d: [
-      'Подпольный цех {placePrep}: шьют «фирменные» спортивные костюмы, ярлыки «Адидас» мешками. Работают {nBig} швей в две смены.',
+      'Подпольный цех {placePrep}: шьют «фирменные» спортивные костюмы, ярлыки «Адидас» мешками. Швей — человек {nBig}, работают в две смены.',
       'Нелегальное производство в подвале {houseHint}: переписывают видеокассеты сотнями, обложки печатают на цветном ксероксе.',
       'В арендованном боксе {placePrep} фасуют стиральный порошок из мешков без маркировки в пачки «Ариэль». Запах на весь квартал.',
     ],
@@ -538,7 +539,7 @@ export const V11 = [
     kinds: { flat: 3, garage: 2, market: 2, office: 2, street: 1 }, hours: 'evening',
     perps: [2, 3], pk: ['thug', 'soldier'], arm: { none: 2, bat: 2, pistol: 2, knife: 1 }, gang: { sport: 3, frostbitten: 2, thieves: 1 }, gp: 0.95,
     vic: [1, 1], vk: ['businessman', 'resident', 'taxi', 'shuttle'], vc: { ok: 1 }, loot: null,
-    danger: 0.6, solv: 0.4, ip: 0, seen: 0.7, flee: 1, car: 1, dur: [240, 1440], who: { relative: 2, neighbor: 1 }, tags: ['kidnap', 'missing'], depts: ['ugro', 'pps'], multi: true,
+    danger: 0.6, solv: 0.4, ip: 0, seen: 0.7, flee: 1, car: 1, dur: [240, 1440], mood: ['crying', 'scared'], who: { relative: 2, neighbor: 1 }, tags: ['kidnap', 'missing'], depts: ['ugro', 'pps'], multi: true,
     missing: {
       who: 'adult', fates: { kidnapped: 1 }, reporter: ['жена', 'мать', 'брат', 'компаньон'],
       seen: ['увезли на машине от подъезда', 'посадили в машину у {placeGen}', 'вывели под руки «на разговор»'],
@@ -555,7 +556,7 @@ export const V11 = [
 
   /* ------------------------------------------------------------------ против собственности */
   {
-    id: 'dacha_squatters', name: 'Бродяги на дачах', cat: 'property', sev: 1, freq: 1,
+    id: 'dacha_squatters', name: 'Бродяги на дачах', cat: 'property', sev: 1, freq: 1.5,
     kinds: { dacha: 8, farm: 2 }, hours: 'any',
     perps: [1, 3], pk: ['drunk', 'local'], arm: { none: 1 },
     vic: [1, 1], vk: ['pensioner', 'farmer'], vc: { ok: 1 }, loot: 'dacha',
@@ -590,7 +591,7 @@ export const V11 = [
     vic: [1, 1], vk: ['resident', 'pensioner', 'worker'], vc: { ok: 1 }, loot: 'garage',
     danger: 0.08, solv: 0.3, ip: 0.2, seen: 0.2, flee: 1, car: 0.5, dur: [60, 180], ev: ['break'], depts: ['ugro', 'uchastok'],
     d: [
-      'Гаражный кооператив {placePrep}: за ночь вскрыто {n} боксов подряд, сторож был пьян. Из последнего вынесли: {loot}.',
+      'Гаражный кооператив {placePrep}: за ночь подряд вскрыто боксов: {n}, сторож был пьян. Из последнего вынесли: {loot}.',
       'Серия краж из гаражей: сбивают навесные замки, выносят всё, что можно продать на рынке. Последний эпизод: {loot}.',
       'В гаражах {placePrep} снова «гости»: в стене бокса пробита дыра, внутри пусто. Пропало: {loot}.',
     ],

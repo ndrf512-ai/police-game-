@@ -261,7 +261,7 @@ export function generateCrime(rng, ctx) {
   // dispatch — суть (город сам добавляет обращение «Заря, Гранит…»); radio — полный текст эфира
   const dispatch = dispBody;
   const radioFull = tidy(`${rng.pick(LEX.DISPATCH_OPEN[urgency])} ${dispBody} ${X(rng.pick(LEX.DISPATCH_CLOSE[urgency]))}`);
-  const mood = isFake ? 'calm' : callerKind === 'victim' && hurt ? 'crying' : severity >= 3 ? 'scared' : type.cat === 'public_order' ? 'angry' : rng.pick(['calm', 'angry', 'scared', 'calm']);
+  const mood = type.mood?.length ? rng.pick(type.mood) : isFake ? 'calm' : callerKind === 'victim' && hurt ? 'crying' : severity >= 3 ? 'scared' : type.cat === 'public_order' ? 'angry' : rng.pick(['calm', 'angry', 'scared', 'calm']);
   const cpool = callerKind === 'victim' && type.cv?.length ? type.cv : type.c;
   const folkMarks = seen && p0 && !role && rng.chance(0.5) ? ` ${perpTotal > 1 ? 'Один' : cap(p0.person.gender === 'f' ? 'она' : 'он')} ${p0.folk}.` : '';
   const caller = tidy(`${X(rng.pick(LEX.CALLER_OPEN[mood]))} ${X(rng.pick(cpool))} ${rng.chance(0.7) ? `Это ${st.on}, дом ${place.house}${rng.chance(0.4) ? ', ' + rng.pick(LEX.FOLK_LANDMARK) : ''}.` : `${cap(place.prep)}!`}${folkMarks}${compl?.c && rng.chance(0.6) ? ' ' + X(pk(rng, compl.c)) : ''}${w.f && rng.chance(0.15) ? ` А тут ещё ${rng.pick(w.f)}…` : ''} ${X(rng.pick(LEX.CALLER_CLOSE[mood]))}`);
