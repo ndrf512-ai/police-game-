@@ -37,6 +37,7 @@ export class BriefingScreen extends Screen {
       sec('4. Личный состав и техника'),
       L(h('div', `На смене: ${onShift.length} из ${staff.length}. В больнице: ${hosp.length}${hosp.length ? ' (' + hosp.map((o) => o.lastName).join(', ') + ')' : ''}. В отпуске: ${leave.length}.`)),
       veh.length ? L(h('div', 'Транспорт: ' + veh.map((v) => `${v.name || v.id} — ${v.status === 'station' ? 'на ходу' : v.status === 'repair' ? 'в ремонте' : v.status === 'task' ? 'на выезде' : 'списан'} (${Math.round(v.condition ?? 0)}%)`).join('; ') + `. Бензин: ${Math.round(s.economy?.fuel ?? 0)} л.`)) : null,
+      (() => { const bl = call(this.sim.building, 'briefingLine', this.game); return bl ? L(h('div', bl)) : null; })(),
       L(h('div', `ИВС: ${pn(det.length, ['задержанный', 'задержанных', 'задержанных'])}, свободно мест: ${Math.max(0, 9 - det.length)}.`)),
       d.news?.length ? [sec('5. Пресса и ТВ'), items(d.news.slice(0, 5), (x) => [h('b', txt(x.title ?? x)), x.text ? h('span.dim', ' — ' + String(x.text).slice(0, 140) + (String(x.text).length > 140 ? '…' : '')) : null])] : null,
       L(h('div.mt.small', { style: 'text-align:right' }, `Оперативный дежурный ${this.dutyName()}`)),

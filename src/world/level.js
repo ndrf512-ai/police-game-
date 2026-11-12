@@ -167,7 +167,7 @@ const DECOR = [
   { type: 'tree', x: 3.25, z: 22.25, rot: 0.3, rect: [3.0, 22.0, 3.5, 22.5], block: 'O' },
   { type: 'tree', x: 33.75, z: 22.25, rot: 1.9, rect: [33.5, 22.0, 34.0, 22.5], block: 'O' },
   { type: 'tree', x: 31.25, z: 29.25, rot: 4.1, rect: [31.0, 29.0, 31.5, 29.5], block: 'O' },
-  { type: 'poster', v: 'ad', x: 26.4, z: 29.53, y: 0.95, rot: PI },
+  { type: 'poster', v: 'ad', x: 26.4, z: 29.47, y: 0.85, rot: PI },
   { type: 'trash_can', x: 29.0, z: 28.9 },
   { type: 'puddle', x: 6.5, z: 24.6, s: 0.9 }, { type: 'puddle', x: 17.5, z: 26.5, s: 0.7 },
   { type: 'puddle', x: 30.5, z: 24.8, s: 1.0 }, { type: 'puddle', x: -2.5, z: 26.0, s: 0.6 },

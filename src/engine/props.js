@@ -119,7 +119,7 @@ function buildDecor(geo, p, A, out, xf, B, light) {
       B(0.4, -0.04, 0.12, 0.1, 0.005, 0.09, { top: ['black'] }); break;
     case 'poster': {
       const v = p.v || 'agit';
-      const [hw, hh] = { honor: [0.8, 0.55], rules: [0.34, 0.47], agit: [0.33, 0.46], ad: [0.36, 0.5] }[v] || [0.33, 0.46];
+      const [hw, hh] = { honor: [0.8, 0.55], rules: [0.34, 0.47], agit: [0.33, 0.46], ad: [0.3, 0.4] }[v] || [0.33, 0.46];
       if (v === 'honor') { B(0, 0, 0.02, hw + 0.05, hh + 0.05, 0.02, all('wood_dark')); B(0, 0, 0.043, hw, hh, 0.003, { front: ['poster_honor'] }); }
       else B(0, 0, 0.005, hw, hh, 0.004, { front: ['poster_' + v], side: ['paper'] });
       break; }
