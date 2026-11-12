@@ -7,12 +7,13 @@ import { DISTRICTS, STREETS, DISTRICT_FORMS } from '../data/districts.js';
 import * as LEX from '../data/crime_lex.js';
 import { VIOLENT, DOMESTIC } from '../data/crime_types_violent.js';
 import { PROPERTY, ORGANIZED, DRUGS, PUBLIC_ORDER, ECONOMIC, TRAFFIC, OTHER } from '../data/crime_types_more.js';
+import { V11, V11_VK } from '../data/crime_types_v11.js';
 import { NEWS_FILLERS, VISITORS, PATROL_EVENTS, CHATTER, OUTCOMES } from '../data/crime_extra.js';
 
 export { DISTRICTS };
 
 const DEF = { freq: 3, hours: 'any', perps: [1, 2], pk: ['local'], arm: { none: 1 }, vic: [1, 1], vk: ['resident'], vc: { ok: 1 }, loot: null, danger: 0.2, solv: 0.4, ip: 0.2, seen: 0.5, flee: 0.7, dur: [20, 60], car: 0, kinds: { street: 1 } };
-export const CRIME_TYPES = [...VIOLENT, ...DOMESTIC, ...PROPERTY, ...ORGANIZED, ...DRUGS, ...PUBLIC_ORDER, ...ECONOMIC, ...TRAFFIC, ...OTHER].map((t) => ({ ...DEF, ...t, category: t.cat, severity: t.sev }));
+export const CRIME_TYPES = [...VIOLENT, ...DOMESTIC, ...PROPERTY, ...ORGANIZED, ...DRUGS, ...PUBLIC_ORDER, ...ECONOMIC, ...TRAFFIC, ...OTHER, ...V11].map((t) => ({ ...DEF, ...t, category: t.cat, severity: t.sev }));
 export const CRIME_TYPE_BY_ID = Object.fromEntries(CRIME_TYPES.map((t) => [t.id, t]));
 
 // дополнительные роли потерпевших (нет в лексиконе)
@@ -21,6 +22,7 @@ const EXTRA_VK = {
   nurse: { gender: { f: 1 }, age: [22, 55], role: 'медицинская сестра', folk: '[медсестра|сестричка]' },
   bandit_v: { gender: { m: 1 }, age: [20, 38], role: 'ранее судимый', folk: '[бандит|из этих, бритых]' },
   junkie_v: { gender: { m: 2, f: 1 }, age: [16, 26], role: '{g:молодой человек|девушка}', folk: '{g:[парень|пацан]|[девушка|девчонка]}' },
+  ...V11_VK,
 };
 
 /* ------------------------------------------------------------------ утилиты текста */
@@ -185,6 +187,13 @@ export function generateCrime(rng, ctx) {
     const gp = type.gp ?? (type.cat === 'organized' ? 0.8 : 0.2);
     if (cands.length && rng.chance(gp)) gang = rng.weighted(cands, (g) => type.gang[g.type] * ((d.influence?.[g.id] ?? 10) + 3));
   }
+  // розыск пропавшего: судьба решается сразу; банда — только если «держат»
+  let mFate = null;
+  if (type.missing) {
+    mFate = wkey(rng, type.missing.fates) || 'lost';
+    if (mFate === 'kidnapped' && !gang) mFate = 'hospital';
+    if (mFate !== 'kidnapped') gang = null;
+  }
   // осложнение
   const { perps, prof, profId, total: perpTotal } = makePerps(rng, type, gang, null);
   const { victims, total: vicTotal } = makeVictims(rng, type);
@@ -235,9 +244,9 @@ export function generateCrime(rng, ctx) {
   vars.loot = loot || 'уточняется';
   const flags = {
     armed: topArm !== 'none', gun: ['pistol', 'rifle', 'shotgun'].includes(topArm), ip: inProgress, car: hasCar, gang: !!gang, many: perpTotal > 1,
-    kids: compl?.id === 'kids' || (type.tags || []).includes('kids'), inj: hurt, dead: victims.some((v) => v.condition === 'dead'), night: h >= 22 || h < 6, seen,
+    kids: compl?.id === 'kids' || (type.tags || []).includes('kids'), inj: hurt, dead: victims.some((v) => v.condition === 'dead'), night: h >= 22 || h < 6, seen, fake: isFake,
   };
-  const callerKind = type.who ? wkey(rng, type.who) : (victims.length && type.cv && rng.chance(0.45) ? 'victim' : 'neighbor');
+  const callerKind = type.who ? wkey(rng, type.who) : (victims.length && type.cv?.length && rng.chance(0.45) ? 'victim' : 'neighbor');
   const callerGender = callerKind === 'victim' && v0 ? v0.person.gender : (rng.chance(0.62) ? 'f' : 'm');
   const env = { vars, flags, roles: { p: pGender, v: v0 ? (vicTotal > 3 ? 'pl' : v0.person.gender) : 'm', c: callerGender, w: rng.chance(0.5) ? 'f' : 'm', g: p0 ? p0.person.gender : 'm' } };
   const X = (t) => tidy(expand(rng, casePrep(t), env));
@@ -253,7 +262,7 @@ export function generateCrime(rng, ctx) {
   const dispatch = dispBody;
   const radioFull = tidy(`${rng.pick(LEX.DISPATCH_OPEN[urgency])} ${dispBody} ${X(rng.pick(LEX.DISPATCH_CLOSE[urgency]))}`);
   const mood = isFake ? 'calm' : callerKind === 'victim' && hurt ? 'crying' : severity >= 3 ? 'scared' : type.cat === 'public_order' ? 'angry' : rng.pick(['calm', 'angry', 'scared', 'calm']);
-  const cpool = callerKind === 'victim' && type.cv ? type.cv : type.c;
+  const cpool = callerKind === 'victim' && type.cv?.length ? type.cv : type.c;
   const folkMarks = seen && p0 && !role && rng.chance(0.5) ? ` ${perpTotal > 1 ? 'Один' : cap(p0.person.gender === 'f' ? 'она' : 'он')} ${p0.folk}.` : '';
   const caller = tidy(`${X(rng.pick(LEX.CALLER_OPEN[mood]))} ${X(rng.pick(cpool))} ${rng.chance(0.7) ? `Это ${st.on}, дом ${place.house}${rng.chance(0.4) ? ', ' + rng.pick(LEX.FOLK_LANDMARK) : ''}.` : `${cap(place.prep)}!`}${folkMarks}${compl?.c && rng.chance(0.6) ? ' ' + X(pk(rng, compl.c)) : ''}${w.f && rng.chance(0.15) ? ` А тут ещё ${rng.pick(w.f)}…` : ''} ${X(rng.pick(LEX.CALLER_CLOSE[mood]))}`);
   // улики и свидетели
@@ -265,7 +274,8 @@ export function generateCrime(rng, ctx) {
   const news = type.n && (severity >= 3 || rng.chance(0.25)) ? X(rng.pick(type.n)) : null;
   const solv = Math.max(0.03, Math.min(1, type.solv + (compl?.fx?.solv || 0) + (seen ? 0.08 : -0.05) + witnesses * 0.02 + evid.length * 0.02));
   const danger = Math.max(0, Math.min(1, type.danger + (compl?.fx?.danger || 0) + (flags.gun ? 0.1 : 0)));
-  const tags = [...(type.tags || [])]; if (compl?.fx?.tag) tags.push(compl.fx.tag); if (compl) tags.push('c:' + compl.id); if (isFake) tags.push('false'); if (flags.gun) tags.push('gun'); if (hasCar) tags.push('car');
+  const tags = [...(type.tags || [])]; if (compl?.fx?.tag) tags.push(compl.fx.tag); if (compl) tags.push('c:' + compl.id); if (isFake) tags.push('false', 'false_alarm'); if (flags.gun) tags.push('gun'); if (hasCar) tags.push('car');
+  const missing = type.missing && v0 ? missingOf(rng, type, mFate, v0, gang, ctx, X) : null;
   return {
     id: uid('cr'), typeId: type.id, category: type.cat, severity, title: type.name, districtId: d.id,
     place: { id: place.id, name: place.name, prep: place.prep, kind: place.kind, value: place.value, addr: place.addr, guardable: place.guardable },
@@ -274,8 +284,20 @@ export function generateCrime(rng, ctx) {
     victims: victims.map((v) => ({ person: v.person, age: v.age, desc: v.desc, condition: v.condition })), victimCount: vicTotal || 0,
     witnesses, evidence: evid, loot, text: { dispatch, radio: radioFull, caller, news, details }, solvability: solv, danger, gangId: gang ? gang.id : null,
     inProgress, durationMin: rng.int(type.dur[0], type.dur[1]), status: 'new', tags, isFake, weather: w.name, complication: compl ? compl.id : null,
-    car: hasCar ? vars.car : null, callerMood: mood, callerKind,
+    car: hasCar ? vars.car : null, callerMood: mood, callerKind, ...(missing ? { missing } : {}),
   };
+}
+/** Объект розыска (формат как у missingCase в city_crime.js): по нему работают задачи «розыск» */
+function missingOf(rng, type, fate, v0, gang, ctx, X) {
+  const M = type.missing; const since = ((ctx.day || 1) - 1) * 1440 + Math.floor(ctx.minute || 0);
+  const p = v0.person;
+  const m = {
+    who: M.who || 'man', person: { gender: p.gender, firstName: p.firstName, lastName: p.lastName, patronymic: p.patronymic || '' }, age: v0.age, gender: p.gender, fate, since,
+    reporter: rng.pick(M.reporter || ['родственники']), lastSeen: M.seen && M.seen.length ? X(rng.pick(M.seen)) : 'ушёл из дома и не вернулся',
+    returnAt: ['friend', 'drunk_friend', 'ran_away'].includes(fate) ? since + rng.int(12, 60) * 60 : null,
+  };
+  if (fate === 'kidnapped' && gang) m.gangId = gang.id;
+  return m;
 }
 
 /* ------------------------------------------------------------------ исход для рации */
